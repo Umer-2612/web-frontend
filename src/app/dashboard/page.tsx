@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import { api, type AuthUser } from "@/lib/api";
 
@@ -42,11 +43,14 @@ const DashboardPage = () => {
 
   return (
     <main className="mx-auto max-w-lg space-y-6 px-4 py-16">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">Welcome, {user.full_name}</h1>
-        <p className="text-muted-foreground text-sm">
-          {user.email} · {roleLabel[user.role] ?? user.role}
-        </p>
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">Welcome, {user.full_name}</h1>
+          <p className="text-muted-foreground text-sm">
+            {user.email} · {roleLabel[user.role] ?? user.role}
+          </p>
+        </div>
+        <ThemeSwitcher />
       </div>
       <p className="text-muted-foreground text-sm">
         This is the placeholder landing spot after sign-in or invite acceptance. Jobs, candidates, and
