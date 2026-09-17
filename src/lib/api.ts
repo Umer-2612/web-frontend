@@ -43,6 +43,28 @@ export interface CreateUserInput {
   password: string;
 }
 
+export interface Job {
+  id: string;
+  company_id: string;
+  title: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface CreateJobInput {
+  title: string;
+  description: string;
+}
+
+export interface Candidate {
+  id: string;
+  job_id: string;
+  full_name: string;
+  resume_file_name: string;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -52,11 +74,32 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function authHeaders(): Headers {
+  const headers = new Headers();
   const token = getStoredAuthToken();
-  const headers = new Headers(init?.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
+
+async function throwIfNotOk(res: Response): Promise<void> {
+  if (res.ok) return;
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* no JSON body */
+  }
+  const message =
+    (body as { error?: { message?: string } })?.error?.message ??
+    (body as { message?: string })?.message ??
+    `Request failed (${res.status})`;
+  throw new ApiError(res.status, message);
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = authHeaders();
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -65,21 +108,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
   });
 
-  let body: unknown = null;
-  try {
-    body = await res.json();
-  } catch {
-    /* no JSON body */
-  }
-
-  if (!res.ok) {
-    const message =
-      (body as { error?: { message?: string } })?.error?.message ??
-      (body as { message?: string })?.message ??
-      `Request failed (${res.status})`;
-    throw new ApiError(res.status, message);
-  }
-  return (body as { data: T }).data;
+  await throwIfNotOk(res);
+  const body = (await res.json()) as { data: T };
+  return body.data;
 }
 
 export const api = {
@@ -106,4 +137,42 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  listJobs: () => request<Job[]>("/jobs"),
+  createJob: (data: CreateJobInput) =>
+    request<Job>("/jobs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getJob: (id: string) => request<Job>(`/jobs/${id}`),
+
+  listCandidates: (jobId: string) => request<Candidate[]>(`/jobs/${jobId}/candidates`),
+  uploadResumes: async (jobId: string, files: File[]): Promise<Candidate[]> => {
+    const form = new FormData();
+    files.forEach((file) => form.append("resumes", file));
+
+    const res = await fetch(`${API_URL}/jobs/${jobId}/candidates`, {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+      body: form,
+    });
+    await throwIfNotOk(res);
+    const body = (await res.json()) as { data: Candidate[] };
+    return body.data;
+  },
+  downloadResume: async (jobId: string, candidateId: string, fileName: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/jobs/${jobId}/candidates/${candidateId}/resume`, {
+      credentials: "include",
+      headers: authHeaders(),
+    });
+    await throwIfNotOk(res);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
 };

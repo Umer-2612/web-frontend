@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { SidebarNavItem } from "@/components/layout/sidebar-nav-item";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
+  { href: "/dashboard/jobs", label: "Jobs", icon: <Briefcase size={16} /> },
   { href: "/dashboard/team", label: "Team", icon: <Users size={16} /> },
 ];
 
@@ -28,10 +30,18 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ userName, userRole, onLogout }: SidebarProps) => {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("sidebar-collapsed") === "true";
   });
+
+  // Longest matching href wins, so /dashboard/jobs/[id] highlights "Jobs"
+  // instead of both "Dashboard" and "Jobs" matching on the shared prefix.
+  const activeHref = navItems
+    .map((item) => item.href)
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -76,7 +86,7 @@ export const Sidebar = ({ userName, userRole, onLogout }: SidebarProps) => {
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
         {navItems.map((item) => (
-          <SidebarNavItem key={item.href} {...item} collapsed={collapsed} />
+          <SidebarNavItem key={item.href} {...item} collapsed={collapsed} active={item.href === activeHref} />
         ))}
       </nav>
 
