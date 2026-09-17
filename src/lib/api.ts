@@ -24,6 +24,7 @@ function clearStoredAuthToken() {
 }
 
 export type UserRole = "super_admin" | "hiring_manager";
+export type UserStatus = "pending_verification" | "active" | "inactive";
 
 export interface AuthUser {
   id: string;
@@ -31,14 +32,15 @@ export interface AuthUser {
   full_name: string;
   email: string;
   role: UserRole;
-  is_active: boolean;
+  status: UserStatus;
   created_at: string;
 }
 
-export interface PublicInvitation {
+export interface CreateUserInput {
+  full_name: string;
   email: string;
-  role: UserRole;
-  company_name: string;
+  password: string;
+  company_name?: string;
 }
 
 export class ApiError extends Error {
@@ -98,13 +100,10 @@ export const api = {
   },
   me: () => request<AuthUser>("/auth/me"),
 
-  getInvitation: (token: string) => request<PublicInvitation>(`/invitations/${encodeURIComponent(token)}`),
-  setPassword: async (token: string, fullName: string, password: string) => {
-    const result = await request<{ user: AuthUser; token: string }>("/auth/set-password", {
+  listUsers: () => request<AuthUser[]>("/users"),
+  createUser: (data: CreateUserInput) =>
+    request<AuthUser>("/users", {
       method: "POST",
-      body: JSON.stringify({ token, full_name: fullName, password }),
-    });
-    setStoredAuthToken(result.token);
-    return result;
-  },
+      body: JSON.stringify(data),
+    }),
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -53,12 +54,17 @@ const DashboardPage = () => {
         <ThemeSwitcher />
       </div>
       <p className="text-muted-foreground text-sm">
-        This is the placeholder landing spot after sign-in or invite acceptance. Jobs, candidates, and
-        interviews come next.
+        This is the placeholder landing spot after sign-in. Jobs, candidates, and interviews come
+        next.
       </p>
-      <Button variant="outline" onClick={onLogout}>
-        Log out
-      </Button>
+      <div className="flex gap-3">
+        <Button asChild>
+          <Link href="/dashboard/team">Team</Link>
+        </Button>
+        <Button variant="outline" onClick={onLogout}>
+          Log out
+        </Button>
+      </div>
     </main>
   );
 };
