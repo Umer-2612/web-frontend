@@ -37,10 +37,10 @@ export interface AuthUser {
 }
 
 export interface CreateUserInput {
+  company_name: string;
   full_name: string;
   email: string;
   password: string;
-  company_name?: string;
 }
 
 export class ApiError extends Error {
