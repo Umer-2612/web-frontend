@@ -65,6 +65,12 @@ export interface Candidate {
   created_at: string;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -161,6 +167,10 @@ export const api = {
     const body = (await res.json()) as { data: Candidate[] };
     return body.data;
   },
+  listCompanies: () => request<Company[]>("/companies"),
+  getCompany: (id: string) => request<Company>(`/companies/${id}`),
+  listCompanyUsers: (id: string) => request<AuthUser[]>(`/companies/${id}/users`),
+
   downloadResume: async (jobId: string, candidateId: string, fileName: string): Promise<void> => {
     const res = await fetch(`${API_URL}/jobs/${jobId}/candidates/${candidateId}/resume`, {
       credentials: "include",

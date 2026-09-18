@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Briefcase, Building2, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -14,18 +14,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { UserRole } from "@/lib/api";
 import { siteConfig } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
-  { href: "/dashboard/jobs", label: "Jobs", icon: <Briefcase size={16} /> },
-  { href: "/dashboard/team", label: "Team", icon: <Users size={16} /> },
-];
+const dashboardItem = { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> };
+
+function navItemsForRole(role: UserRole) {
+  if (role === "super_admin") {
+    return [dashboardItem, { href: "/dashboard/companies", label: "Companies", icon: <Building2 size={16} /> }];
+  }
+  return [
+    dashboardItem,
+    { href: "/dashboard/jobs", label: "Jobs", icon: <Briefcase size={16} /> },
+    { href: "/dashboard/team", label: "Team", icon: <Users size={16} /> },
+  ];
+}
 
 interface SidebarProps {
   userName: string;
-  userRole: string;
+  userRole: UserRole;
   onLogout: () => void;
 }
 
@@ -35,6 +43,8 @@ export const Sidebar = ({ userName, userRole, onLogout }: SidebarProps) => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("sidebar-collapsed") === "true";
   });
+
+  const navItems = navItemsForRole(userRole);
 
   // Longest matching href wins, so /dashboard/jobs/[id] highlights "Jobs"
   // instead of both "Dashboard" and "Jobs" matching on the shared prefix.
