@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
@@ -10,12 +9,10 @@ interface SidebarNavItemProps {
   icon: React.ReactNode;
   label: string;
   collapsed: boolean;
+  active: boolean;
 }
 
-export const SidebarNavItem = ({ href, icon, label, collapsed }: SidebarNavItemProps) => {
-  const pathname = usePathname();
-  const active = pathname === href;
-
+export const SidebarNavItem = ({ href, icon, label, collapsed, active }: SidebarNavItemProps) => {
   return (
     <Link
       href={href}
