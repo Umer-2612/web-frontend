@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -9,6 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, ApiError, type Company } from "@/lib/api";
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 const CompaniesPage = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -108,26 +113,44 @@ const CompaniesPage = () => {
       </div>
 
       {listError && <p className="text-sm text-red-500">{listError}</p>}
-      <div className="max-w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <table className="w-full min-w-[400px] text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-800 dark:text-zinc-400">
-            <tr>
-              <th className="px-4 py-3">Name</th>
+      <div className="max-w-full overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead>
+            <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/60">
+              <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+                Name
+              </th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+                Created
+              </th>
+              <th className="px-5 py-3.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {companies.length === 0 && (
               <tr>
-                <td colSpan={1} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={3} className="px-5 py-10 text-center text-zinc-400">
                   No companies yet.
                 </td>
               </tr>
             )}
             {companies.map((company) => (
-              <tr key={company.id} className="bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800">
-                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
-                  <Link href={`/dashboard/companies/${company.id}`} className="hover:underline">
+              <tr key={company.id} className="group transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <td className="px-5 py-4 font-semibold text-zinc-900 dark:text-zinc-100">
+                  <Link
+                    href={`/dashboard/companies/${company.id}`}
+                    className="group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                  >
                     {company.name}
+                  </Link>
+                </td>
+                <td className="px-5 py-4 text-xs text-zinc-500">{formatDate(company.created_at)}</td>
+                <td className="px-5 py-4 text-right">
+                  <Link
+                    href={`/dashboard/companies/${company.id}`}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+                  >
+                    View <ChevronRight size={13} />
                   </Link>
                 </td>
               </tr>
