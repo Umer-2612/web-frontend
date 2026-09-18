@@ -102,7 +102,10 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
             )}
             {candidates.map((candidate) => (
               <tr key={candidate.id} className="bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800">
-                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{candidate.full_name}</td>
+                <td className="px-4 py-3">
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{candidate.full_name}</p>
+                  {candidate.email && <p className="text-xs text-zinc-400">{candidate.email}</p>}
+                </td>
                 <td className="px-4 py-3 text-zinc-500">{candidate.resume_file_name}</td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="ghost" size="sm" onClick={() => onDownload(candidate)}>

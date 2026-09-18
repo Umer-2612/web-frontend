@@ -61,6 +61,7 @@ export interface Candidate {
   id: string;
   job_id: string;
   full_name: string;
+  email: string | null;
   resume_file_name: string;
   created_at: string;
 }
