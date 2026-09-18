@@ -1,7 +1,7 @@
 "use client";
 
 import { Briefcase, Download, FileText } from "lucide-react";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [descriptionOverflows, setDescriptionOverflows] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+
   const loadCandidates = () => api.listCandidates(id).then(setCandidates);
 
   useEffect(() => {
@@ -37,6 +41,12 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    const el = descriptionRef.current;
+    if (!el) return;
+    setDescriptionOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [job?.description]);
 
   const onFilesSelected = async (files: File[]) => {
     setUploadError(null);
@@ -76,7 +86,25 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
         <div className="px-6 py-5">
-          <RichTextContent html={job.description} />
+          <div className="relative">
+            <RichTextContent
+              ref={descriptionRef}
+              html={job.description}
+              className={descriptionExpanded ? undefined : "max-h-32 overflow-hidden"}
+            />
+            {!descriptionExpanded && descriptionOverflows && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent dark:from-zinc-900" />
+            )}
+          </div>
+          {descriptionOverflows && (
+            <button
+              type="button"
+              onClick={() => setDescriptionExpanded((v) => !v)}
+              className="mt-2 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              {descriptionExpanded ? "Show less" : "Read more"}
+            </button>
+          )}
         </div>
       </div>
 
