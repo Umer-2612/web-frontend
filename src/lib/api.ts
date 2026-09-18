@@ -72,6 +72,30 @@ export interface Company {
   created_at: string;
 }
 
+export type InterviewRoundType = "dsa" | "vscode" | "technical_ai";
+export type InterviewRoundStatus = "pending" | "completed";
+export type InterviewSessionStatus = "scheduled" | "completed" | "cancelled";
+
+export interface InterviewRound {
+  id: string;
+  session_id: string;
+  round_type: InterviewRoundType;
+  sequence: number;
+  status: InterviewRoundStatus;
+  created_at: string;
+}
+
+export interface InterviewSession {
+  id: string;
+  job_id: string;
+  candidate_id: string;
+  scheduled_at: string;
+  status: InterviewSessionStatus;
+  created_by: string;
+  created_at: string;
+  rounds: InterviewRound[];
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -171,6 +195,14 @@ export const api = {
   listCompanies: () => request<Company[]>("/companies"),
   getCompany: (id: string) => request<Company>(`/companies/${id}`),
   listCompanyUsers: (id: string) => request<AuthUser[]>(`/companies/${id}/users`),
+
+  listInterviews: (jobId: string, candidateId: string) =>
+    request<InterviewSession[]>(`/jobs/${jobId}/candidates/${candidateId}/interviews`),
+  scheduleInterview: (jobId: string, candidateId: string, scheduledAt: string) =>
+    request<InterviewSession>(`/jobs/${jobId}/candidates/${candidateId}/interviews`, {
+      method: "POST",
+      body: JSON.stringify({ scheduled_at: scheduledAt }),
+    }),
 
   downloadResume: async (jobId: string, candidateId: string, fileName: string): Promise<void> => {
     const res = await fetch(`${API_URL}/jobs/${jobId}/candidates/${candidateId}/resume`, {
