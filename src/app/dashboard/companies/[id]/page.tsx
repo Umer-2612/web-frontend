@@ -1,5 +1,6 @@
 "use client";
 
+import { Building2 } from "lucide-react";
 import { use, useEffect, useState } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
@@ -35,32 +36,45 @@ const CompanyDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{company.name}</h2>
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-100 bg-gradient-to-r from-indigo-50 via-white to-white px-6 py-5 dark:border-zinc-800 dark:from-indigo-950/20 dark:via-zinc-900 dark:to-zinc-900">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/50">
+              <Building2 size={22} className="text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{company.name}</h1>
+          </div>
+        </div>
       </div>
 
-      <div className="max-w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <div className="max-w-full overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <table className="w-full min-w-[480px] text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-800 dark:text-zinc-400">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Role</th>
+          <thead>
+            <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/60">
+              <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+                Name
+              </th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+                Email
+              </th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+                Role
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {users.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={3} className="px-5 py-10 text-center text-zinc-400">
                   No users yet.
                 </td>
               </tr>
             )}
             {users.map((user) => (
-              <tr key={user.id} className="bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800">
-                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{user.full_name}</td>
-                <td className="px-4 py-3 text-zinc-500">{user.email}</td>
-                <td className="px-4 py-3">
+              <tr key={user.id} className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <td className="px-5 py-4 font-medium text-zinc-900 dark:text-zinc-100">{user.full_name}</td>
+                <td className="px-5 py-4 text-zinc-500">{user.email}</td>
+                <td className="px-5 py-4">
                   <Badge variant={user.role === "super_admin" ? "default" : "secondary"}>
                     {roleLabel[user.role] ?? user.role}
                   </Badge>
