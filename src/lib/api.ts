@@ -72,6 +72,23 @@ export interface Company {
   created_at: string;
 }
 
+export interface CandidateExperience {
+  role: string;
+  company: string;
+  years: string;
+  bullets: string[];
+}
+
+export interface CandidateProfile {
+  id: string;
+  candidate_id: string;
+  phone: string | null;
+  summary: string | null;
+  skills: string[];
+  experience: CandidateExperience[];
+  created_at: string;
+}
+
 export type InterviewRoundType = "dsa" | "vscode" | "technical_ai";
 export type InterviewRoundStatus = "pending" | "completed";
 export type InterviewSessionStatus = "scheduled" | "completed" | "cancelled";
@@ -178,6 +195,9 @@ export const api = {
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
 
   listCandidates: (jobId: string) => request<Candidate[]>(`/jobs/${jobId}/candidates`),
+  getCandidate: (jobId: string, candidateId: string) => request<Candidate>(`/jobs/${jobId}/candidates/${candidateId}`),
+  getCandidateProfile: (jobId: string, candidateId: string) =>
+    request<CandidateProfile>(`/jobs/${jobId}/candidates/${candidateId}/profile`),
   uploadResumes: async (jobId: string, files: File[]): Promise<Candidate[]> => {
     const form = new FormData();
     files.forEach((file) => form.append("resumes", file));

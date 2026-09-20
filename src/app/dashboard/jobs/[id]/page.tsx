@@ -1,6 +1,7 @@
 "use client";
 
 import { Briefcase, CalendarClock, Download, FileText } from "lucide-react";
+import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
@@ -194,7 +195,12 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
               return (
                 <tr key={candidate.id} className="group transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                   <td className="px-5 py-4">
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{candidate.full_name}</p>
+                    <Link
+                      href={`/dashboard/jobs/${id}/candidates/${candidate.id}`}
+                      className="font-medium text-zinc-900 hover:text-indigo-600 hover:underline dark:text-zinc-100 dark:hover:text-indigo-400"
+                    >
+                      {candidate.full_name}
+                    </Link>
                     {candidate.email && <p className="text-xs text-zinc-400">{candidate.email}</p>}
                   </td>
                   <td className="px-5 py-4 text-zinc-500">

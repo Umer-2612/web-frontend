@@ -11,6 +11,9 @@ const pageTitles: Record<string, string> = {
 };
 
 function detailParent(pathname: string): { title: string; backHref: string } | null {
+  const candidateMatch = pathname.match(/^\/dashboard\/jobs\/([^/]+)\/candidates\/[^/]+$/);
+  if (candidateMatch) return { title: "Candidate Detail", backHref: `/dashboard/jobs/${candidateMatch[1]}` };
+
   if (pathname.startsWith("/dashboard/jobs/")) return { title: "Job Detail", backHref: "/dashboard/jobs" };
   if (pathname.startsWith("/dashboard/companies/")) return { title: "Company Detail", backHref: "/dashboard/companies" };
   return null;
