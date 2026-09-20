@@ -1,16 +1,29 @@
 "use client";
 
-import { Briefcase, Download, FileText } from "lucide-react";
+import { Briefcase, CalendarClock, Download, FileText } from "lucide-react";
 import { use, useEffect, useRef, useState } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileDropzone } from "@/components/ui/file-dropzone";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { RichTextContent } from "@/components/ui/rich-text-content";
-import { api, ApiError, type AuthUser, type Candidate, type Job } from "@/lib/api";
+import { api, ApiError, type AuthUser, type Candidate, type InterviewSession, type Job } from "@/lib/api";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatScheduledAt(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
@@ -19,6 +32,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [me, setMe] = useState<AuthUser | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [latestInterviews, setLatestInterviews] = useState<Record<string, InterviewSession>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -29,7 +43,25 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [descriptionOverflows, setDescriptionOverflows] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
 
-  const loadCandidates = () => api.listCandidates(id).then(setCandidates);
+  const [scheduleFor, setScheduleFor] = useState<Candidate | null>(null);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false);
+
+  const loadCandidates = async () => {
+    const list = await api.listCandidates(id);
+    setCandidates(list);
+
+    const entries = await Promise.all(
+      list.map(async (candidate) => {
+        const sessions = await api.listInterviews(id, candidate.id);
+        return [candidate.id, sessions[0]] as const;
+      }),
+    );
+    setLatestInterviews(
+      Object.fromEntries(entries.filter((entry): entry is [string, InterviewSession] => Boolean(entry[1]))),
+    );
+  };
 
   useEffect(() => {
     Promise.all([api.me(), api.getJob(id), loadCandidates()])
@@ -65,6 +97,23 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
     api.downloadResume(id, candidate.id, candidate.resume_file_name).catch((err) => {
       setUploadError(err instanceof ApiError ? err.message : "Download failed");
     });
+  };
+
+  const onSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduleFor) return;
+    setScheduleError(null);
+    setScheduling(true);
+    try {
+      const session = await api.scheduleInterview(id, scheduleFor.id, new Date(scheduledAt).toISOString());
+      setLatestInterviews((prev) => ({ ...prev, [scheduleFor.id]: session }));
+      setScheduleFor(null);
+      setScheduledAt("");
+    } catch (err) {
+      setScheduleError(err instanceof ApiError ? err.message : "Scheduling failed");
+    } finally {
+      setScheduling(false);
+    }
   };
 
   if (loading) return <AiSpinner />;
@@ -118,7 +167,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
       )}
 
       <div className="max-w-full overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <table className="w-full min-w-[480px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/60">
               <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
@@ -127,36 +176,85 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
               <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
                 Resume
               </th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+                Interview
+              </th>
               <th className="px-5 py-3.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {candidates.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-5 py-10 text-center text-zinc-400">
+                <td colSpan={4} className="px-5 py-10 text-center text-zinc-400">
                   No candidates yet.
                 </td>
               </tr>
             )}
-            {candidates.map((candidate) => (
-              <tr key={candidate.id} className="group transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td className="px-5 py-4 font-medium text-zinc-900 dark:text-zinc-100">{candidate.full_name}</td>
-                <td className="px-5 py-4 text-zinc-500">
-                  <span className="inline-flex items-center gap-1.5 text-xs">
-                    <FileText size={13} className="text-zinc-400" />
-                    {candidate.resume_file_name}
-                  </span>
-                </td>
-                <td className="px-5 py-4 text-right">
-                  <Button variant="ghost" size="sm" onClick={() => onDownload(candidate)}>
-                    <Download className="size-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {candidates.map((candidate) => {
+              const interview = latestInterviews[candidate.id];
+              return (
+                <tr key={candidate.id} className="group transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <td className="px-5 py-4">
+                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{candidate.full_name}</p>
+                    {candidate.email && <p className="text-xs text-zinc-400">{candidate.email}</p>}
+                  </td>
+                  <td className="px-5 py-4 text-zinc-500">
+                    <span className="inline-flex items-center gap-1.5 text-xs">
+                      <FileText size={13} className="text-zinc-400" />
+                      {candidate.resume_file_name}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    {interview ? (
+                      <span className="text-xs text-zinc-600 dark:text-zinc-300">
+                        {formatScheduledAt(interview.scheduled_at)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-400">Not scheduled</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="flex justify-end gap-1">
+                      {me.role === "hiring_manager" && (
+                        <Button variant="ghost" size="sm" onClick={() => setScheduleFor(candidate)}>
+                          <CalendarClock className="size-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => onDownload(candidate)}>
+                        <Download className="size-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      <Dialog open={scheduleFor !== null} onOpenChange={(open) => !open && setScheduleFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule interview{scheduleFor ? ` for ${scheduleFor.full_name}` : ""}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={onSchedule} className="space-y-4">
+            {scheduleError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{scheduleError}</p>}
+            <div className="space-y-1">
+              <Label htmlFor="scheduledAt">Date and time</Label>
+              <Input
+                id="scheduledAt"
+                type="datetime-local"
+                required
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={scheduling} className="w-full">
+              {scheduling ? "Scheduling…" : "Schedule"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
