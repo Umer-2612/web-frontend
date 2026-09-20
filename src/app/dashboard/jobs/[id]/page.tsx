@@ -5,10 +5,9 @@ import { use, useEffect, useRef, useState } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
 import { Button } from "@/components/ui/button";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileDropzone } from "@/components/ui/file-dropzone";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { api, ApiError, type AuthUser, type Candidate, type InterviewSession, type Job } from "@/lib/api";
 
@@ -44,7 +43,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const descriptionRef = useRef<HTMLDivElement>(null);
 
   const [scheduleFor, setScheduleFor] = useState<Candidate | null>(null);
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledAt, setScheduledAt] = useState<Date | undefined>(undefined);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
 
@@ -101,14 +100,14 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
   const onSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!scheduleFor) return;
+    if (!scheduleFor || !scheduledAt) return;
     setScheduleError(null);
     setScheduling(true);
     try {
-      const session = await api.scheduleInterview(id, scheduleFor.id, new Date(scheduledAt).toISOString());
+      const session = await api.scheduleInterview(id, scheduleFor.id, scheduledAt.toISOString());
       setLatestInterviews((prev) => ({ ...prev, [scheduleFor.id]: session }));
       setScheduleFor(null);
-      setScheduledAt("");
+      setScheduledAt(undefined);
     } catch (err) {
       setScheduleError(err instanceof ApiError ? err.message : "Scheduling failed");
     } finally {
@@ -216,7 +215,15 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   <td className="px-5 py-4 text-right">
                     <div className="flex justify-end gap-1">
                       {me.role === "hiring_manager" && (
-                        <Button variant="ghost" size="sm" onClick={() => setScheduleFor(candidate)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setScheduledAt(undefined);
+                            setScheduleError(null);
+                            setScheduleFor(candidate);
+                          }}
+                        >
                           <CalendarClock className="size-4" />
                         </Button>
                       )}
@@ -233,23 +240,14 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
       </div>
 
       <Dialog open={scheduleFor !== null} onOpenChange={(open) => !open && setScheduleFor(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Schedule interview{scheduleFor ? ` for ${scheduleFor.full_name}` : ""}</DialogTitle>
           </DialogHeader>
           <form onSubmit={onSchedule} className="space-y-4">
             {scheduleError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{scheduleError}</p>}
-            <div className="space-y-1">
-              <Label htmlFor="scheduledAt">Date and time</Label>
-              <Input
-                id="scheduledAt"
-                type="datetime-local"
-                required
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-              />
-            </div>
-            <Button type="submit" disabled={scheduling} className="w-full">
+            <DateTimePicker value={scheduledAt} onChange={setScheduledAt} minDate={new Date()} />
+            <Button type="submit" disabled={scheduling || !scheduledAt} className="w-full">
               {scheduling ? "Scheduling…" : "Schedule"}
             </Button>
           </form>
