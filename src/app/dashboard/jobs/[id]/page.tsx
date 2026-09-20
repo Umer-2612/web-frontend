@@ -240,7 +240,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
       </div>
 
       <Dialog open={scheduleFor !== null} onOpenChange={(open) => !open && setScheduleFor(null)}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Schedule interview{scheduleFor ? ` for ${scheduleFor.full_name}` : ""}</DialogTitle>
           </DialogHeader>

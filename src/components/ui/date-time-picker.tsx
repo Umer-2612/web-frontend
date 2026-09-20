@@ -117,15 +117,15 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = "Pick a
   };
 
   return (
-    <div className={cn("grid gap-4 sm:grid-cols-[280px_1fr]", className)}>
-      <div className="bg-background rounded-xl border">
+    <div className={cn("grid gap-4 sm:grid-cols-[280px_1fr] sm:items-stretch", className)}>
+      <div className="bg-background flex rounded-xl border p-3 sm:h-[380px]">
         <Calendar
           mode="single"
           selected={value}
           onSelect={handleDaySelect}
           disabled={isDateDisabled}
           captionLayout="label"
-          className="w-full p-3 [--cell-size:--spacing(9)]"
+          className="w-full self-start [--cell-size:--spacing(9)]"
           classNames={{
             root: "w-full",
             month: "w-full",
@@ -137,25 +137,25 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = "Pick a
         />
       </div>
 
-      <div className="bg-background flex flex-col gap-4 rounded-xl border p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="bg-background flex flex-col gap-3 rounded-xl border p-4 sm:h-[380px]">
+        <div className="flex items-center justify-between gap-3 border-b pb-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <CalendarIcon className="text-muted-foreground size-4" />
             <span>{selectedDateLabel}</span>
           </div>
-          {value && <div className="bg-muted rounded-lg px-3 py-2 text-sm font-medium">{format(value, "h:mm a")}</div>}
+          {value && (
+            <div className="text-primary flex items-center gap-1.5 text-sm font-semibold">
+              <ClockIcon className="size-4" />
+              {format(value, "h:mm a")}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <ClockIcon className="text-muted-foreground size-4" />
-          <span>Select time</span>
-        </div>
-
-        <div className="flex max-h-64 flex-col gap-4 overflow-y-auto pr-1">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
           {TIME_GROUPS.map((group) => (
             <div key={group.label} className="flex flex-col gap-2">
               <p className="text-muted-foreground text-xs font-medium">{group.label}</p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-3 gap-2">
                 {group.slots.map(([hour, minute]) => {
                   const disabled = !!minDate && withTime(value ?? minDate, hour, minute) < minDate;
 
