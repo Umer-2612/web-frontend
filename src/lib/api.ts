@@ -89,6 +89,11 @@ export interface ResumeSection {
   items: string[];
 }
 
+export interface ResumeLink {
+  label: string;
+  url: string;
+}
+
 export interface CandidateProfile {
   id: string;
   candidate_id: string;
@@ -97,6 +102,7 @@ export interface CandidateProfile {
   skills: SkillGroup[];
   experience: CandidateExperience[];
   sections: ResumeSection[];
+  links: ResumeLink[];
   created_at: string;
 }
 

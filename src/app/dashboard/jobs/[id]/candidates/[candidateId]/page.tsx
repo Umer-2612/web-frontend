@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Download, Mail, Phone, User } from "lucide-react";
+import { Briefcase, Download, ExternalLink, Mail, Phone, User } from "lucide-react";
 import { use, useEffect, useState } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
@@ -192,6 +192,27 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
           </div>
 
           <div className="space-y-6">
+            {profile.links.length > 0 && (
+              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Links</h3>
+                <ul className="space-y-2">
+                  {profile.links.map((link) => (
+                    <li key={link.url}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        <ExternalLink size={13} />
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
               <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Skills</h3>
               {profile.skills.length === 0 ? (
