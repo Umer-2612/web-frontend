@@ -101,6 +101,7 @@ export interface CandidateProfile {
   summary: string | null;
   skills: SkillGroup[];
   experience: CandidateExperience[];
+  education: CandidateExperience[];
   sections: ResumeSection[];
   links: ResumeLink[];
   created_at: string;

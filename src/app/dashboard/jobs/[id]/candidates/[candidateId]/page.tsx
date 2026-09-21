@@ -1,12 +1,21 @@
 "use client";
 
-import { Briefcase, Download, ExternalLink, Mail, Phone, User } from "lucide-react";
-import { use, useEffect, useState } from "react";
+import { Briefcase, Download, ExternalLink, GraduationCap, Mail, Phone, User } from "lucide-react";
+import { use, useEffect, useState, type ReactNode } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api, ApiError, type Candidate, type CandidateProfile, type InterviewSession, type Job } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  type Candidate,
+  type CandidateExperience,
+  type CandidateProfile,
+  type InterviewSession,
+  type Job,
+  type ResumeLink,
+} from "@/lib/api";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -27,6 +36,67 @@ const ROUND_LABELS: Record<string, string> = {
   vscode: "VS Code",
   technical_ai: "Technical (AI)",
 };
+
+/** Wraps the exact resume text a link was attached to (see core-api's
+ * ExtractedLink) in an <a>, wherever that text shows up: a job's company
+ * name, a "Github Repo" inside a Projects bullet, and so on. Keeps links
+ * attached to the words they belong to instead of listed separately. */
+function linkify(text: string, links: ResumeLink[]): ReactNode {
+  if (!text || links.length === 0) return text;
+
+  let best: { link: ResumeLink; index: number } | null = null;
+  for (const link of links) {
+    if (!link.label) continue;
+    const index = text.indexOf(link.label);
+    if (index !== -1 && (!best || index < best.index)) best = { link, index };
+  }
+  if (!best) return text;
+
+  const before = text.slice(0, best.index);
+  const match = text.slice(best.index, best.index + best.link.label.length);
+  const after = text.slice(best.index + best.link.label.length);
+
+  return (
+    <>
+      {before}
+      <a
+        href={best.link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-indigo-600 hover:underline dark:text-indigo-400"
+      >
+        {match}
+      </a>
+      {linkify(after, links)}
+    </>
+  );
+}
+
+function EntryList({ entries, links, emptyText }: { entries: CandidateExperience[]; links: ResumeLink[]; emptyText: string }) {
+  if (entries.length === 0) return <p className="text-sm text-zinc-400">{emptyText}</p>;
+
+  return (
+    <div className="space-y-5">
+      {entries.map((entry, i) => (
+        <div key={`${entry.company}-${i}`} className="border-l-2 border-indigo-100 pl-4 dark:border-indigo-900/50">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              {entry.role} {entry.company && <span className="text-zinc-400">at {linkify(entry.company, links)}</span>}
+            </p>
+            {entry.years && <span className="text-xs text-zinc-400">{entry.years}</span>}
+          </div>
+          {entry.bullets.length > 0 && (
+            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
+              {entry.bullets.map((bullet, j) => (
+                <li key={j}>{linkify(bullet, links)}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candidateId: string }> }) => {
   const { id: jobId, candidateId } = use(params);
@@ -71,6 +141,8 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
   if (loadError) return <p className="text-sm text-red-500">{loadError}</p>;
   if (!job || !candidate) return null;
 
+  const links = profile?.links ?? [];
+
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -101,6 +173,22 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                   )}
                   <span>Added {formatDate(candidate.created_at)}</span>
                 </div>
+                {links.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {links.map((link) => (
+                      <a
+                        key={link.url}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        <ExternalLink size={11} />
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={onDownload}>
@@ -145,36 +233,24 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
             {profile.summary && (
               <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Summary</h3>
-                <p className="text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-300">{profile.summary}</p>
+                <p className="text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-300">{linkify(profile.summary, links)}</p>
               </div>
             )}
 
             <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
               <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Experience</h3>
-              {profile.experience.length === 0 ? (
-                <p className="text-sm text-zinc-400">No work experience was parsed from this resume.</p>
-              ) : (
-                <div className="space-y-5">
-                  {profile.experience.map((entry, i) => (
-                    <div key={`${entry.company}-${i}`} className="border-l-2 border-indigo-100 pl-4 dark:border-indigo-900/50">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                          {entry.role} {entry.company && <span className="text-zinc-400">at {entry.company}</span>}
-                        </p>
-                        {entry.years && <span className="text-xs text-zinc-400">{entry.years}</span>}
-                      </div>
-                      {entry.bullets.length > 0 && (
-                        <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
-                          {entry.bullets.map((bullet, j) => (
-                            <li key={j}>{bullet}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <EntryList entries={profile.experience} links={links} emptyText="No work experience was parsed from this resume." />
             </div>
+
+            {profile.education.length > 0 && (
+              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  <GraduationCap size={15} className="text-indigo-500" />
+                  Education
+                </h3>
+                <EntryList entries={profile.education} links={links} emptyText="" />
+              </div>
+            )}
 
             {profile.sections.map((section) => (
               <div
@@ -184,7 +260,7 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                 <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
                 <ul className="space-y-1.5 text-sm text-zinc-600 dark:text-zinc-300">
                   {section.items.map((item, i) => (
-                    <li key={i}>{item}</li>
+                    <li key={i}>{linkify(item, links)}</li>
                   ))}
                 </ul>
               </div>
@@ -192,27 +268,6 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
           </div>
 
           <div className="space-y-6">
-            {profile.links.length > 0 && (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Links</h3>
-                <ul className="space-y-2">
-                  {profile.links.map((link) => (
-                    <li key={link.url}>
-                      <a
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
-                      >
-                        <ExternalLink size={13} />
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
               <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Skills</h3>
               {profile.skills.length === 0 ? (
