@@ -79,13 +79,24 @@ export interface CandidateExperience {
   bullets: string[];
 }
 
+export interface SkillGroup {
+  category: string;
+  items: string[];
+}
+
+export interface ResumeSection {
+  heading: string;
+  items: string[];
+}
+
 export interface CandidateProfile {
   id: string;
   candidate_id: string;
   phone: string | null;
   summary: string | null;
-  skills: string[];
+  skills: SkillGroup[];
   experience: CandidateExperience[];
+  sections: ResumeSection[];
   created_at: string;
 }
 

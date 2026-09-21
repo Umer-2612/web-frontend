@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, CalendarClock, Download, FileText } from "lucide-react";
+import { Briefcase, CalendarClock, CheckCircle2, Download, FileText } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 
@@ -47,6 +47,14 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>(undefined);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  const [scheduledSession, setScheduledSession] = useState<InterviewSession | null>(null);
+
+  const closeScheduleDialog = () => {
+    setScheduleFor(null);
+    setScheduledAt(undefined);
+    setScheduleError(null);
+    setScheduledSession(null);
+  };
 
   const loadCandidates = async () => {
     const list = await api.listCandidates(id);
@@ -107,8 +115,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
     try {
       const session = await api.scheduleInterview(id, scheduleFor.id, scheduledAt.toISOString());
       setLatestInterviews((prev) => ({ ...prev, [scheduleFor.id]: session }));
-      setScheduleFor(null);
-      setScheduledAt(undefined);
+      setScheduledSession(session);
     } catch (err) {
       setScheduleError(err instanceof ApiError ? err.message : "Scheduling failed");
     } finally {
@@ -220,16 +227,8 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   </td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex justify-end gap-1">
-                      {me.role === "hiring_manager" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setScheduledAt(undefined);
-                            setScheduleError(null);
-                            setScheduleFor(candidate);
-                          }}
-                        >
+                      {me.role === "hiring_manager" && !interview && (
+                        <Button variant="ghost" size="sm" onClick={() => setScheduleFor(candidate)}>
                           <CalendarClock className="size-4" />
                         </Button>
                       )}
@@ -245,18 +244,35 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
         </table>
       </div>
 
-      <Dialog open={scheduleFor !== null} onOpenChange={(open) => !open && setScheduleFor(null)}>
+      <Dialog open={scheduleFor !== null} onOpenChange={(open) => !open && closeScheduleDialog()}>
         <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Schedule interview{scheduleFor ? ` for ${scheduleFor.full_name}` : ""}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={onSchedule} className="space-y-4">
-            {scheduleError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{scheduleError}</p>}
-            <DateTimePicker value={scheduledAt} onChange={setScheduledAt} minDate={new Date()} />
-            <Button type="submit" disabled={scheduling || !scheduledAt} className="w-full">
-              {scheduling ? "Scheduling…" : "Schedule"}
-            </Button>
-          </form>
+          {scheduledSession ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <CheckCircle2 className="size-12 text-emerald-500" />
+              <div>
+                <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Interview scheduled</p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  {scheduleFor?.full_name} is scheduled for {formatScheduledAt(scheduledSession.scheduled_at)}.
+                </p>
+              </div>
+              <Button onClick={closeScheduleDialog} className="mt-2 w-full">
+                Done
+              </Button>
+            </div>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Schedule interview{scheduleFor ? ` for ${scheduleFor.full_name}` : ""}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={onSchedule} className="space-y-4">
+                {scheduleError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{scheduleError}</p>}
+                <DateTimePicker value={scheduledAt} onChange={setScheduledAt} minDate={new Date()} />
+                <Button type="submit" disabled={scheduling || !scheduledAt} className="w-full">
+                  {scheduling ? "Scheduling…" : "Schedule"}
+                </Button>
+              </form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

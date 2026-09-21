@@ -175,21 +175,46 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                 </div>
               )}
             </div>
+
+            {profile.sections.map((section) => (
+              <div
+                key={section.heading}
+                className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+              >
+                <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
+                <ul className="space-y-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+                  {section.items.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Skills</h3>
-            {profile.skills.length === 0 ? (
-              <p className="text-sm text-zinc-400">No skills were parsed from this resume.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {profile.skills.map((skill) => (
-                  <Badge key={skill} variant="secondary">
-                    {skill}
-                  </Badge>
-                ))}
-              </div>
-            )}
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+              <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Skills</h3>
+              {profile.skills.length === 0 ? (
+                <p className="text-sm text-zinc-400">No skills were parsed from this resume.</p>
+              ) : (
+                <div className="space-y-4">
+                  {profile.skills.map((group) => (
+                    <div key={group.category || "__ungrouped"}>
+                      {group.category && (
+                        <p className="mb-1.5 text-xs font-medium text-zinc-400 uppercase">{group.category}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.items.map((skill) => (
+                          <Badge key={skill} variant="secondary">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
