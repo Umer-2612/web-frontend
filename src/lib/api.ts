@@ -84,9 +84,14 @@ export interface SkillGroup {
   items: string[];
 }
 
+export interface ResumeSectionEntry {
+  title: string;
+  bullets: string[];
+}
+
 export interface ResumeSection {
   heading: string;
-  items: string[];
+  entries: ResumeSectionEntry[];
 }
 
 export interface ResumeLink {
