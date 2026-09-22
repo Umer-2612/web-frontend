@@ -269,28 +269,38 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
               </div>
             )}
 
-            {profile.sections.map((section) => (
-              <div
-                key={section.heading}
-                className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
-                <ol className="list-decimal space-y-2 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
-                  {section.entries.map((entry, i) => (
-                    <li key={i}>
-                      {linkify(entry.title, links)}
-                      {entry.bullets.length > 0 && (
-                        <ol className="mt-1 list-decimal space-y-1 pl-4">
-                          {entry.bullets.map((bullet, j) => (
-                            <li key={j}>{bullet}</li>
-                          ))}
-                        </ol>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))}
+            {profile.sections.map((section) => {
+              // Falls back gracefully instead of crashing the page: `sections`
+              // is a Json column, so its internal shape isn't enforced by
+              // Postgres/Prisma the way a real column is, a candidate parsed
+              // by an older version of this parser (a different internal
+              // shape for the same field) can still exist in the database.
+              const entries = section.entries ?? [];
+              if (entries.length === 0) return null;
+
+              return (
+                <div
+                  key={section.heading}
+                  className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
+                  <ol className="list-decimal space-y-2 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
+                    {entries.map((entry, i) => (
+                      <li key={i}>
+                        {linkify(entry.title, links)}
+                        {(entry.bullets ?? []).length > 0 && (
+                          <ol className="mt-1 list-decimal space-y-1 pl-4">
+                            {entry.bullets.map((bullet, j) => (
+                              <li key={j}>{bullet}</li>
+                            ))}
+                          </ol>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            })}
           </div>
 
           <div className="space-y-6">
