@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Download, ExternalLink, GraduationCap, Mail, Phone, User } from "lucide-react";
+import { Briefcase, Download, GraduationCap, Mail, Phone, User } from "lucide-react";
 import { use, useEffect, useState, type ReactNode } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
@@ -38,9 +38,13 @@ const ROUND_LABELS: Record<string, string> = {
 };
 
 /** Wraps the exact resume text a link was attached to (see core-api's
- * ExtractedLink) in an <a>, wherever that text shows up: a job's company
- * name, a "Github Repo" inside a Projects bullet, and so on. Keeps links
- * attached to the words they belong to instead of listed separately. */
+ * ExtractedLink) in an <a>, wherever that text shows up. Only ever called on
+ * short, structured fields (a company/institution name, a section item like
+ * "Realtime Meeting Intelligence - Github Repo"), never on free-form prose
+ * (bullets, summary): a label like "Apple" is also just an ordinary word
+ * that shows up incidentally in prose ("900K+ Apple Store URLs", "Apple's
+ * DB team", ...), and linking every one of those would be wrong, only the
+ * one place that text is actually the resume's own link should become one. */
 function linkify(text: string, links: ResumeLink[]): ReactNode {
   if (!text || links.length === 0) return text;
 
@@ -88,7 +92,7 @@ function EntryList({ entries, links, emptyText }: { entries: CandidateExperience
           {entry.bullets.length > 0 && (
             <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
               {entry.bullets.map((bullet, j) => (
-                <li key={j}>{linkify(bullet, links)}</li>
+                <li key={j}>{bullet}</li>
               ))}
             </ul>
           )}
@@ -173,22 +177,6 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                   )}
                   <span>Added {formatDate(candidate.created_at)}</span>
                 </div>
-                {links.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    {links.map((link) => (
-                      <a
-                        key={link.url}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
-                      >
-                        <ExternalLink size={11} />
-                        {link.label}
-                      </a>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={onDownload}>
@@ -233,7 +221,7 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
             {profile.summary && (
               <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Summary</h3>
-                <p className="text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-300">{linkify(profile.summary, links)}</p>
+                <p className="text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-300">{profile.summary}</p>
               </div>
             )}
 
