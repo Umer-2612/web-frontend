@@ -48,11 +48,19 @@ const ROUND_LABELS: Record<string, string> = {
 function linkify(text: string, links: ResumeLink[]): ReactNode {
   if (!text || links.length === 0) return text;
 
+  // Prefers the earliest match, and among matches starting at the same spot
+  // (e.g. a "Github" profile link and a "Github Repo" project link both
+  // start where "Github" does), the longest/most specific label, otherwise
+  // whichever link happened to come first in the list could win over a
+  // strictly-better match at the exact same position.
   let best: { link: ResumeLink; index: number } | null = null;
   for (const link of links) {
     if (!link.label) continue;
     const index = text.indexOf(link.label);
-    if (index !== -1 && (!best || index < best.index)) best = { link, index };
+    if (index === -1) continue;
+    if (!best || index < best.index || (index === best.index && link.label.length > best.link.label.length)) {
+      best = { link, index };
+    }
   }
   if (!best) return text;
 
@@ -119,11 +127,11 @@ function EntryList({
             {entry.years && <span className="text-xs text-zinc-400">{entry.years}</span>}
           </div>
           {entry.bullets.length > 0 && (
-            <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
+            <ul className="mt-1.5 list-inside list-disc space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
               {entry.bullets.map((bullet, j) => (
                 <li key={j}>{bullet}</li>
               ))}
-            </ol>
+            </ul>
           )}
         </div>
       ))}
@@ -284,16 +292,16 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                   className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
-                  <ol className="list-decimal space-y-2 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
+                  <ol className="list-inside list-decimal space-y-2 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
                     {entries.map((entry, i) => (
                       <li key={i}>
                         {linkify(entry.title, links)}
                         {(entry.bullets ?? []).length > 0 && (
-                          <ol className="mt-1 list-decimal space-y-1 pl-4">
+                          <ul className="mt-1 list-inside list-disc space-y-1 pl-6">
                             {entry.bullets.map((bullet, j) => (
                               <li key={j}>{bullet}</li>
                             ))}
-                          </ol>
+                          </ul>
                         )}
                       </li>
                     ))}
