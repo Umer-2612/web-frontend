@@ -76,7 +76,29 @@ function linkify(text: string, links: ResumeLink[]): ReactNode {
   );
 }
 
-function EntryList({ entries, links, emptyText }: { entries: CandidateExperience[]; links: ResumeLink[]; emptyText: string }) {
+/**
+ * "role-at-company" fits Experience: role is genuinely a job title, company
+ * genuinely the employer, so "{role} at {company}" reads correctly.
+ * "stacked" fits Education: role/company just mean "whichever line the
+ * resume had first" and "second" (an institution-first resume like
+ * "University Name, Location  <date>" then "Degree" on the next line ends up
+ * with role=institution, company=degree; a degree-first one like "Degree,
+ * Institution  <date>" ends up the other way around), there's no reliable
+ * way to know which is the degree and which is the institution, so instead
+ * of guessing with a wrong "at", each just gets its own line, in the same
+ * order the resume itself listed them.
+ */
+function EntryList({
+  entries,
+  links,
+  emptyText,
+  layout = "role-at-company",
+}: {
+  entries: CandidateExperience[];
+  links: ResumeLink[];
+  emptyText: string;
+  layout?: "role-at-company" | "stacked";
+}) {
   if (entries.length === 0) return <p className="text-sm text-zinc-400">{emptyText}</p>;
 
   return (
@@ -84,17 +106,24 @@ function EntryList({ entries, links, emptyText }: { entries: CandidateExperience
       {entries.map((entry, i) => (
         <div key={`${entry.company}-${i}`} className="border-l-2 border-indigo-100 pl-4 dark:border-indigo-900/50">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              {entry.role} {entry.company && <span className="text-zinc-400">at {linkify(entry.company, links)}</span>}
-            </p>
+            {layout === "stacked" ? (
+              <div>
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{entry.role}</p>
+                {entry.company && <p className="text-xs text-zinc-400">{linkify(entry.company, links)}</p>}
+              </div>
+            ) : (
+              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {entry.role} {entry.company && <span className="text-zinc-400">at {linkify(entry.company, links)}</span>}
+              </p>
+            )}
             {entry.years && <span className="text-xs text-zinc-400">{entry.years}</span>}
           </div>
           {entry.bullets.length > 0 && (
-            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
+            <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
               {entry.bullets.map((bullet, j) => (
                 <li key={j}>{bullet}</li>
               ))}
-            </ul>
+            </ol>
           )}
         </div>
       ))}
@@ -236,7 +265,7 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                   <GraduationCap size={15} className="text-indigo-500" />
                   Education
                 </h3>
-                <EntryList entries={profile.education} links={links} emptyText="" />
+                <EntryList entries={profile.education} links={links} emptyText="" layout="stacked" />
               </div>
             )}
 
@@ -246,11 +275,11 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                 className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
               >
                 <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
-                <ul className="space-y-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+                <ol className="list-decimal space-y-1.5 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
                   {section.items.map((item, i) => (
                     <li key={i}>{linkify(item, links)}</li>
                   ))}
-                </ul>
+                </ol>
               </div>
             ))}
           </div>
