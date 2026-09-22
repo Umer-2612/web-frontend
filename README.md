@@ -4,13 +4,23 @@ Web app for the Interview Platform. Talks to `core-api` for authentication.
 
 ## What this app does
 
-- `/login`: email and password sign-in.
-- `/invite/[token]`: accepts an invitation (the only way to create an account), sets a
-  password, and logs the new user in.
-- `/dashboard`: shows the logged-in user and a logout button.
-
-There is no signup page. Accounts are created only by accepting an invitation sent from
-`core-api`.
+- `/login`: email and password sign-in. There is no signup page or invite flow: every account
+  is created directly (with a real password) by a super admin (`POST /users` on `core-api`)
+  and logs in here with that password from the start.
+- `/dashboard`: landing page after login.
+- `/dashboard/companies` (super admin only): every company on the platform, and a dialog to
+  found a new one together with its first hiring manager.
+- `/dashboard/team` (hiring manager only): the hiring managers in the caller's own company.
+- `/dashboard/jobs`: a hiring manager's own jobs (super admin sees every company's, read-only);
+  create a job with a rich-text description.
+- `/dashboard/jobs/[id]`: one job — its description, bulk resume upload (drag-and-drop PDFs,
+  each becomes a candidate), the candidate list, and per-candidate interview scheduling. The
+  Schedule button hides once a candidate already has a session (one interview per candidate).
+- `/dashboard/jobs/[id]/candidates/[candidateId]`: one candidate's full parsed resume profile
+  (summary, work experience, education, skills grouped by the resume's own categories, and
+  every other resume section such as projects/certificates/achievements) plus their interview
+  history. Resume hyperlinks (LinkedIn, GitHub, project repos, certificate badges, ...) render
+  inline on the exact resume text they're attached to, not as a separate link list.
 
 ## Prerequisites
 
@@ -49,9 +59,13 @@ npm run dev
 
 ```
 src/
-  app/         pages (Next.js App Router): /, /login, /invite/[token], /dashboard
+  app/         pages (Next.js App Router): /, /login, /dashboard, /dashboard/companies,
+               /dashboard/team, /dashboard/jobs, /dashboard/jobs/[id],
+               /dashboard/jobs/[id]/candidates/[candidateId]
   components/
-    ui/        shadcn/ui primitives (Button, Input, Label)
+    layout/    dashboard shell (sidebar, header)
+    ui/        shadcn/ui primitives (Button, Input, Dialog, FileDropzone, DateTimePicker,
+               RichTextEditor, ...)
   lib/
     api.ts     typed client for every core-api endpoint this app calls
     utils.ts   the cn() class-name helper
