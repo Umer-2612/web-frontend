@@ -26,22 +26,56 @@ export interface PortalOverview {
   rounds: PortalRound[];
 }
 
+export interface TestResults {
+  passed: number;
+  total: number;
+}
+
 export interface DsaSubmission {
+  question_id: string;
   code: string;
   language: string;
+  test_results: TestResults;
   submitted_at: string;
 }
 
+export interface OpenTestCase {
+  input: string;
+  expected_output: string;
+}
+
+export interface DsaQuestion {
+  id: string;
+  title: string;
+  prompt: string;
+  difficulty: "easy" | "medium" | "hard";
+  tags: string[];
+  starter_code: Record<string, string>;
+  open_test_cases: OpenTestCase[];
+  total_test_cases: number;
+  submission: DsaSubmission | null;
+}
+
 export interface DsaRoundView {
-  round: { id: string; status: InterviewRoundStatus; submission: DsaSubmission | null };
-  question: {
-    id: string;
-    title: string;
-    prompt: string;
-    difficulty: "easy" | "medium" | "hard";
-    tags: string[];
-    starter_code: Record<string, string>;
-  };
+  round_id: string;
+  status: InterviewRoundStatus;
+  started_at: string | null;
+  duration_minutes: number;
+  questions: DsaQuestion[];
+}
+
+export interface GradedTestCase {
+  locked: boolean;
+  passed: boolean;
+  input?: string;
+  expected_output?: string;
+  actual_output?: string;
+}
+
+export interface GradeResult {
+  passed: number;
+  total: number;
+  results: GradedTestCase[];
 }
 
 export class PortalApiError extends Error {
@@ -90,11 +124,20 @@ export interface ExecuteResult {
 export const portalApi = {
   getPortal: (token: string) => portalRequest<PortalOverview>(`/portal/${token}`),
   getDsaRound: (token: string) => portalRequest<DsaRoundView>(`/portal/${token}/dsa`),
-  submitDsaRound: (token: string, code: string, language: string) =>
-    portalRequest<unknown>(`/portal/${token}/dsa/submit`, {
+  startDsaRound: (token: string) =>
+    portalRequest<{ started_at: string }>(`/portal/${token}/dsa/start`, { method: "POST" }),
+  runDsaTests: (token: string, questionId: string, code: string, language: string) =>
+    portalRequest<GradeResult>(`/portal/${token}/dsa/questions/${questionId}/run-tests`, {
       method: "POST",
       body: JSON.stringify({ code, language }),
     }),
+  submitDsaQuestion: (token: string, questionId: string, code: string, language: string) =>
+    portalRequest<DsaSubmission>(`/portal/${token}/dsa/questions/${questionId}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ code, language }),
+    }),
+  /** Ad hoc "Run" with arbitrary stdin, calls judge-service directly, never saved
+   * and never graded against a question's test cases (that's runDsaTests). */
   execute: async (languageId: number, code: string, stdin: string): Promise<ExecuteResult> => {
     const res = await fetch(`${JUDGE_URL}/execute`, {
       method: "POST",

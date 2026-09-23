@@ -48,20 +48,20 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [scheduledSession, setScheduledSession] = useState<InterviewSession | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const closeScheduleDialog = () => {
     setScheduleFor(null);
     setScheduledAt(undefined);
     setScheduleError(null);
     setScheduledSession(null);
-    setLinkCopied(false);
+    setCopiedToken(null);
   };
 
   const copyInterviewLink = (accessToken: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/interview/${accessToken}`);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+    setCopiedToken(accessToken);
+    setTimeout(() => setCopiedToken((current) => (current === accessToken ? null : current)), 2000);
   };
 
   const loadCandidates = async () => {
@@ -226,9 +226,22 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   </td>
                   <td className="px-5 py-4">
                     {interview ? (
-                      <span className="text-xs text-zinc-600 dark:text-zinc-300">
-                        {formatScheduledAt(interview.scheduled_at)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-600 dark:text-zinc-300">
+                          {formatScheduledAt(interview.scheduled_at)}
+                        </span>
+                        <button
+                          onClick={() => copyInterviewLink(interview.access_token)}
+                          title="Copy candidate link"
+                          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                        >
+                          {copiedToken === interview.access_token ? (
+                            <Check className="size-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="size-3.5" />
+                          )}
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-xs text-zinc-400">Not scheduled</span>
                     )}
@@ -268,7 +281,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
                 onClick={() => copyInterviewLink(scheduledSession.access_token)}
                 className="w-full"
               >
-                {linkCopied ? (
+                {copiedToken === scheduledSession.access_token ? (
                   <>
                     <Check className="size-3.5 text-emerald-500" /> Link copied
                   </>
