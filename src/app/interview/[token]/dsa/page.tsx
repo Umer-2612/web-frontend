@@ -135,11 +135,19 @@ export default function DsaRoundPage({ params }: { params: Promise<{ token: stri
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
         <div className="flex flex-col overflow-y-auto border-b border-zinc-200 p-5 lg:border-r lg:border-b-0 dark:border-zinc-800">
-          <div className="mb-1 flex items-center gap-2">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{question.title}</h1>
             <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
               {question.difficulty}
             </span>
+            {question.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
           <p className="mt-3 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">{question.prompt}</p>
         </div>

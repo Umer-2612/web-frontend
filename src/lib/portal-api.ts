@@ -39,6 +39,7 @@ export interface DsaRoundView {
     title: string;
     prompt: string;
     difficulty: "easy" | "medium" | "hard";
+    tags: string[];
     starter_code: Record<string, string>;
   };
 }
