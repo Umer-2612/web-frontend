@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, CalendarClock, CheckCircle2, Download, FileText } from "lucide-react";
+import { Briefcase, CalendarClock, Check, CheckCircle2, Copy, Download, FileText } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 
@@ -48,12 +48,20 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [scheduledSession, setScheduledSession] = useState<InterviewSession | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const closeScheduleDialog = () => {
     setScheduleFor(null);
     setScheduledAt(undefined);
     setScheduleError(null);
     setScheduledSession(null);
+    setLinkCopied(false);
+  };
+
+  const copyInterviewLink = (accessToken: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/interview/${accessToken}`);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   };
 
   const loadCandidates = async () => {
@@ -255,6 +263,21 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   {scheduleFor?.full_name} is scheduled for {formatScheduledAt(scheduledSession.scheduled_at)}.
                 </p>
               </div>
+              <Button
+                variant="outline"
+                onClick={() => copyInterviewLink(scheduledSession.access_token)}
+                className="w-full"
+              >
+                {linkCopied ? (
+                  <>
+                    <Check className="size-3.5 text-emerald-500" /> Link copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3.5" /> Copy candidate link
+                  </>
+                )}
+              </Button>
               <Button onClick={closeScheduleDialog} className="mt-2 w-full">
                 Done
               </Button>
