@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Download, GraduationCap, Mail, Phone, User } from "lucide-react";
+import { Briefcase, Check, Copy, Download, GraduationCap, Mail, Phone, User } from "lucide-react";
 import { use, useEffect, useState, type ReactNode } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
@@ -149,6 +149,13 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [copiedLinkFor, setCopiedLinkFor] = useState<string | null>(null);
+
+  const copyInterviewLink = (accessToken: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/interview/${accessToken}`);
+    setCopiedLinkFor(accessToken);
+    setTimeout(() => setCopiedLinkFor((current) => (current === accessToken ? null : current)), 2000);
+  };
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -237,7 +244,20 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                   <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {formatScheduledAt(session.scheduled_at)}
                   </span>
-                  <Badge variant={session.status === "scheduled" ? "default" : "secondary"}>{session.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={session.status === "scheduled" ? "default" : "secondary"}>{session.status}</Badge>
+                    <Button variant="ghost" size="sm" onClick={() => copyInterviewLink(session.access_token)}>
+                      {copiedLinkFor === session.access_token ? (
+                        <>
+                          <Check className="size-3.5 text-emerald-500" /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="size-3.5" /> Candidate link
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {session.rounds.map((round) => (
@@ -246,6 +266,18 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                     </Badge>
                   ))}
                 </div>
+                {session.rounds
+                  .filter((round) => round.submission)
+                  .map((round) => (
+                    <details key={round.id} className="mt-2 text-sm">
+                      <summary className="cursor-pointer text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                        {ROUND_LABELS[round.round_type] ?? round.round_type} submission ({round.submission?.language})
+                      </summary>
+                      <pre className="mt-2 max-h-80 overflow-auto rounded-md bg-zinc-50 p-3 text-xs text-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+                        {round.submission?.code}
+                      </pre>
+                    </details>
+                  ))}
               </div>
             ))}
           </div>

@@ -1,0 +1,106 @@
+/**
+ * Client for the token-gated candidate portal. Deliberately separate from
+ * lib/api.ts: no cookies, no Bearer token, no credentials: "include", since
+ * the access_token in the URL is the only thing that gates these requests,
+ * and a candidate is never a logged-in user.
+ */
+import { API_URL } from "@/lib/api";
+
+export const JUDGE_URL = process.env.NEXT_PUBLIC_JUDGE_URL ?? "http://localhost:4001";
+
+export type InterviewRoundType = "dsa" | "vscode" | "technical_ai";
+export type InterviewRoundStatus = "pending" | "completed";
+export type InterviewSessionStatus = "scheduled" | "completed" | "cancelled";
+
+export interface PortalRound {
+  id: string;
+  round_type: InterviewRoundType;
+  sequence: number;
+  status: InterviewRoundStatus;
+}
+
+export interface PortalOverview {
+  candidate_name: string;
+  job_title: string;
+  status: InterviewSessionStatus;
+  rounds: PortalRound[];
+}
+
+export interface DsaSubmission {
+  code: string;
+  language: string;
+  submitted_at: string;
+}
+
+export interface DsaRoundView {
+  round: { id: string; status: InterviewRoundStatus; submission: DsaSubmission | null };
+  question: {
+    id: string;
+    title: string;
+    prompt: string;
+    difficulty: "easy" | "medium" | "hard";
+    starter_code: Record<string, string>;
+  };
+}
+
+export class PortalApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = "PortalApiError";
+  }
+}
+
+async function portalRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string } };
+      message = body.error?.message ?? message;
+    } catch {
+      /* no JSON body */
+    }
+    throw new PortalApiError(res.status, message);
+  }
+
+  const body = (await res.json()) as { data: T };
+  return body.data;
+}
+
+export interface ExecuteResult {
+  success: boolean;
+  stdout?: string;
+  stderr?: string;
+  compileOutput?: string;
+  message?: string;
+  status?: { id: number; description: string } | null;
+  time?: string | null;
+  memory?: number | null;
+  error?: string;
+}
+
+export const portalApi = {
+  getPortal: (token: string) => portalRequest<PortalOverview>(`/portal/${token}`),
+  getDsaRound: (token: string) => portalRequest<DsaRoundView>(`/portal/${token}/dsa`),
+  submitDsaRound: (token: string, code: string, language: string) =>
+    portalRequest<unknown>(`/portal/${token}/dsa/submit`, {
+      method: "POST",
+      body: JSON.stringify({ code, language }),
+    }),
+  execute: async (languageId: number, code: string, stdin: string): Promise<ExecuteResult> => {
+    const res = await fetch(`${JUDGE_URL}/execute`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language_id: languageId, code, stdin }),
+    });
+    return (await res.json()) as ExecuteResult;
+  },
+};
