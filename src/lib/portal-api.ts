@@ -78,6 +78,13 @@ export interface GradeResult {
   results: GradedTestCase[];
 }
 
+/** One line of the NDJSON stream run-tests sends back, one per test case as it
+ * finishes grading, plus a final "done" line once every case has run. */
+export type RunTestsEvent =
+  | { type: "result"; index: number; result: GradedTestCase }
+  | { type: "done"; passed: number; total: number }
+  | { type: "error"; message: string };
+
 export class PortalApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -109,6 +116,48 @@ async function portalRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return body.data;
 }
 
+/** Reads an NDJSON response body one line at a time, calling `onEvent` for each
+ * complete line as soon as it arrives, not after the whole response is done, so a
+ * caller can update the UI incrementally instead of waiting for the stream to end.
+ * A request that never starts streaming (validation failed before any result was
+ * ready) still comes back as the usual `{ error: {...} }` JSON, surfaced the same
+ * way portalRequest does. */
+async function streamPortalRequest(path: string, body: unknown, onEvent: (event: RunTestsEvent) => void): Promise<void> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok || !res.body) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const errorBody = (await res.json()) as { error?: { message?: string } };
+      message = errorBody.error?.message ?? message;
+    } catch {
+      /* no JSON body */
+    }
+    throw new PortalApiError(res.status, message);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.trim()) onEvent(JSON.parse(line) as RunTestsEvent);
+    }
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as RunTestsEvent);
+}
+
 export interface ExecuteResult {
   success: boolean;
   stdout?: string;
@@ -126,11 +175,13 @@ export const portalApi = {
   getDsaRound: (token: string) => portalRequest<DsaRoundView>(`/portal/${token}/dsa`),
   startDsaRound: (token: string) =>
     portalRequest<{ started_at: string }>(`/portal/${token}/dsa/start`, { method: "POST" }),
-  runDsaTests: (token: string, questionId: string, code: string, language: string) =>
-    portalRequest<GradeResult>(`/portal/${token}/dsa/questions/${questionId}/run-tests`, {
-      method: "POST",
-      body: JSON.stringify({ code, language }),
-    }),
+  runDsaTests: (
+    token: string,
+    questionId: string,
+    code: string,
+    language: string,
+    onEvent: (event: RunTestsEvent) => void,
+  ) => streamPortalRequest(`/portal/${token}/dsa/questions/${questionId}/run-tests`, { code, language }, onEvent),
   submitDsaQuestion: (token: string, questionId: string, code: string, language: string) =>
     portalRequest<DsaSubmission>(`/portal/${token}/dsa/questions/${questionId}/submit`, {
       method: "POST",

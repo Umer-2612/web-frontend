@@ -8,9 +8,9 @@ import { Group as PanelGroup, Panel } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { DSA_EDITOR_OPTIONS, DSA_LANGUAGES, getDsaLanguage } from "@/lib/dsa-constants";
-import { portalApi, type DsaQuestion, type DsaRoundView, type DsaSubmission, type GradeResult } from "@/lib/portal-api";
+import { PortalApiError, portalApi, type DsaQuestion, type DsaRoundView, type DsaSubmission } from "@/lib/portal-api";
 import { ConsolePanel } from "./console-panel";
-import { TestResultsPanel } from "./test-results-panel";
+import { TestResultsPanel, type LiveTestRun } from "./test-results-panel";
 import type { OutputLine } from "./types";
 import { formatRemaining, useRoundTimer } from "./use-round-timer";
 
@@ -19,7 +19,7 @@ interface QuestionState {
   language: string;
   stdin: string;
   output: OutputLine[];
-  testResult: GradeResult | null;
+  testRun: LiveTestRun | null;
   submission: DsaSubmission | null;
 }
 
@@ -40,7 +40,7 @@ function initQuestionStates(view: DsaRoundView): Record<string, QuestionState> {
       language,
       stdin: "",
       output: [],
-      testResult: null,
+      testRun: null,
       submission: question.submission,
     };
   }
@@ -145,12 +145,33 @@ export function DsaWorkspace({
     }
   };
 
+  const applyTestRunEvent = (questionId: string, patch: (current: LiveTestRun) => LiveTestRun) => {
+    setStates((prev) => {
+      const current = prev[questionId]?.testRun ?? { results: [], isRunning: true, error: null };
+      return { ...prev, [questionId]: { ...prev[questionId]!, testRun: patch(current) } };
+    });
+  };
+
   const runTests = async () => {
+    const questionId = activeQuestion.id;
     setIsTesting(true);
     setBottomTab("tests");
+    updateState(questionId, { testRun: { results: [], isRunning: true, error: null } });
+
     try {
-      const result = await portalApi.runDsaTests(token, activeQuestion.id, activeState.code, activeState.language);
-      updateState(activeQuestion.id, { testResult: result });
+      await portalApi.runDsaTests(token, questionId, activeState.code, activeState.language, (event) => {
+        if (event.type === "result") {
+          applyTestRunEvent(questionId, (current) => ({ ...current, results: [...current.results, { index: event.index, result: event.result }] }));
+        } else if (event.type === "done") {
+          applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false }));
+        } else {
+          applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false, error: event.message }));
+        }
+      });
+    } catch (err) {
+      updateState(questionId, {
+        testRun: { results: [], isRunning: false, error: err instanceof PortalApiError ? err.message : "Could not run tests" },
+      });
     } finally {
       setIsTesting(false);
     }
@@ -308,9 +329,10 @@ export function DsaWorkspace({
                   }`}
                 >
                   <ClipboardList className="size-3.5" /> Test Results
-                  {activeState.testResult && (
+                  {activeState.testRun && (
                     <span className="ml-0.5">
-                      ({activeState.testResult.passed}/{activeState.testResult.total})
+                      ({activeState.testRun.results.filter((r) => r.result.passed).length}/{activeState.testRun.results.length}
+                      {activeState.testRun.isRunning ? "…" : ""})
                     </span>
                   )}
                 </button>
@@ -324,7 +346,7 @@ export function DsaWorkspace({
                     disabled={isSubmitted}
                   />
                 ) : (
-                  <TestResultsPanel result={activeState.testResult} />
+                  <TestResultsPanel testRun={activeState.testRun} totalTestCases={activeQuestion.total_test_cases} />
                 )}
               </div>
             </Panel>
