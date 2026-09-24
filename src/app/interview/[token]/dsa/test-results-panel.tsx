@@ -1,46 +1,54 @@
-import { CheckCircle2, XCircle } from "lucide-react";
+import type { GradedTestCase } from "@/lib/portal-api";
 
-import type { GradeResult } from "@/lib/portal-api";
+export interface LiveTestRun {
+  results: { index: number; result: GradedTestCase }[];
+  isRunning: boolean;
+  error: string | null;
+}
 
-export function TestResultsPanel({ result }: { result: GradeResult | null }) {
-  if (!result) {
-    return <p className="px-3 py-2 text-xs text-zinc-400">Click "Run Tests" to check your code against this question's test cases.</p>;
+/** Terminal-style, line-by-line feed: each test case's PASS/FAIL appears the moment
+ * it streams in from the server, not all at once after every case has finished.
+ * Detail (input/expected/actual) only shows for a failed, unlocked case, same as a
+ * typical test runner's output only explaining what went wrong. */
+export function TestResultsPanel({ testRun, totalTestCases }: { testRun: LiveTestRun | null; totalTestCases: number }) {
+  if (!testRun) {
+    return (
+      <p className="px-3 py-2 text-xs text-zinc-400">
+        Click &quot;Run Tests&quot; to check your code against this question&apos;s test cases.
+      </p>
+    );
   }
 
+  const { results, isRunning, error } = testRun;
+  const passed = results.filter((r) => r.result.passed).length;
+
   return (
-    <div className="h-full space-y-2 overflow-auto px-3 py-2 text-xs">
-      <p className="font-medium text-zinc-700 dark:text-zinc-200">
-        {result.passed} / {result.total} test cases passed
+    <div className="h-full overflow-auto bg-zinc-950 px-3 py-2 font-mono text-xs">
+      <p className="text-zinc-500">
+        {isRunning
+          ? `Running test cases… (${results.length}/${totalTestCases})`
+          : error
+            ? "Grading failed"
+            : `${passed}/${results.length} passed`}
       </p>
-      {result.results.map((r, i) => (
-        <div
-          key={i}
-          className={`rounded-md border p-2 ${
-            r.passed
-              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/20"
-              : "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-900/20"
-          }`}
-        >
-          <div className="flex items-center gap-1.5">
-            {r.passed ? (
-              <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <XCircle className="size-3.5 text-red-600 dark:text-red-400" />
-            )}
-            <span className="font-medium">
-              Test case {i + 1}
-              {r.locked ? " (hidden)" : ""}
-            </span>
-          </div>
-          {!r.locked && (
-            <div className="mt-1.5 space-y-0.5 font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
-              <p>Input: {r.input}</p>
-              <p>Expected: {r.expected_output}</p>
-              <p>Got: {r.actual_output}</p>
+      {results.map(({ index, result }) => (
+        <div key={index} className="mt-1">
+          <span className={result.passed ? "text-emerald-400" : "text-red-400"}>{result.passed ? "PASS" : "FAIL"}</span>{" "}
+          <span className="text-zinc-400">
+            Test {index + 1}
+            {result.locked ? " (hidden)" : ""}
+          </span>
+          {!result.locked && !result.passed && (
+            <div className="mt-0.5 space-y-0.5 pl-4 text-zinc-500">
+              <div>input: {result.input}</div>
+              <div>expected: {result.expected_output}</div>
+              <div>got: {result.actual_output}</div>
             </div>
           )}
         </div>
       ))}
+      {isRunning && <p className="mt-1 animate-pulse text-zinc-600">…</p>}
+      {error && <p className="mt-2 text-red-400">Error: {error}</p>}
     </div>
   );
 }
