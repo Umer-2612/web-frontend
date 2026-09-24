@@ -1,7 +1,7 @@
 "use client";
 
 import Editor from "@monaco-editor/react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Maximize2, Play, Send, Terminal } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Maximize2, Play, Send, Square, Terminal } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Group as PanelGroup, Panel } from "react-resizable-panels";
 
@@ -21,6 +21,7 @@ interface QuestionState {
   output: OutputLine[];
   testRun: LiveTestRun | null;
   submission: DsaSubmission | null;
+  submitError: string | null;
 }
 
 function getStarterCode(question: DsaQuestion, languageId: string): string {
@@ -42,6 +43,7 @@ function initQuestionStates(view: DsaRoundView): Record<string, QuestionState> {
       output: [],
       testRun: null,
       submission: question.submission,
+      submitError: null,
     };
   }
   return states;
@@ -82,6 +84,7 @@ export function DsaWorkspace({
 
   const statesRef = useRef(states);
   statesRef.current = states;
+  const testRunAbortRef = useRef<AbortController | null>(null);
 
   const activeQuestion = questions[activeIndex]!;
   const activeState = states[activeQuestion.id]!;
@@ -104,10 +107,19 @@ export function DsaWorkspace({
       if (!state || state.submission) return;
       try {
         const submission = await portalApi.submitDsaQuestion(token, questionId, state.code, state.language);
-        setStates((prev) => ({ ...prev, [questionId]: { ...prev[questionId]!, submission } }));
-      } catch {
-        // The round's over either way once the timer hits zero, surfacing this
-        // failure wouldn't let the candidate do anything about it.
+        setStates((prev) => ({ ...prev, [questionId]: { ...prev[questionId]!, submission, submitError: null } }));
+      } catch (err) {
+        // Surfaced on the manual-submit path so the candidate isn't left staring
+        // at a button that silently reverted with no explanation. Also reached
+        // from the timer-expiry auto-submit, where nobody's around to read it,
+        // that's fine, it just never gets shown.
+        setStates((prev) => ({
+          ...prev,
+          [questionId]: {
+            ...prev[questionId]!,
+            submitError: err instanceof PortalApiError ? err.message : "Submission failed, please try again",
+          },
+        }));
       }
     },
     [token],
@@ -158,23 +170,46 @@ export function DsaWorkspace({
     setBottomTab("tests");
     updateState(questionId, { testRun: { results: [], isRunning: true, error: null } });
 
+    const controller = new AbortController();
+    testRunAbortRef.current = controller;
+
     try {
-      await portalApi.runDsaTests(token, questionId, activeState.code, activeState.language, (event) => {
-        if (event.type === "result") {
-          applyTestRunEvent(questionId, (current) => ({ ...current, results: [...current.results, { index: event.index, result: event.result }] }));
-        } else if (event.type === "done") {
-          applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false }));
-        } else {
-          applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false, error: event.message }));
-        }
-      });
+      await portalApi.runDsaTests(
+        token,
+        questionId,
+        activeState.code,
+        activeState.language,
+        (event) => {
+          if (event.type === "result") {
+            applyTestRunEvent(questionId, (current) => ({
+              ...current,
+              results: [...current.results, { index: event.index, result: event.result }],
+            }));
+          } else if (event.type === "done") {
+            applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false }));
+          } else {
+            applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false, error: event.message }));
+          }
+        },
+        controller.signal,
+      );
     } catch (err) {
-      updateState(questionId, {
-        testRun: { results: [], isRunning: false, error: err instanceof PortalApiError ? err.message : "Could not run tests" },
-      });
+      // Stopping mid-run isn't a failure, keep whatever results already streamed
+      // in and just mark it no longer running, no scary red error for that case.
+      const isStopped = err instanceof DOMException && err.name === "AbortError";
+      applyTestRunEvent(questionId, (current) => ({
+        ...current,
+        isRunning: false,
+        error: isStopped ? null : err instanceof PortalApiError ? err.message : "Could not run tests",
+      }));
     } finally {
       setIsTesting(false);
+      testRunAbortRef.current = null;
     }
+  };
+
+  const stopTests = () => {
+    testRunAbortRef.current?.abort();
   };
 
   const submitActiveQuestion = async () => {
@@ -289,14 +324,26 @@ export function DsaWorkspace({
               <Button variant="outline" size="sm" onClick={runCode} disabled={isRunning || isSubmitted}>
                 {isRunning ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />} Run
               </Button>
-              <Button variant="outline" size="sm" onClick={runTests} disabled={isTesting || isSubmitted}>
-                {isTesting ? <Loader2 className="size-3.5 animate-spin" /> : <ClipboardList className="size-3.5" />} Run Tests
-              </Button>
+              {isTesting ? (
+                <Button variant="outline" size="sm" onClick={stopTests}>
+                  <Square className="size-3.5" /> Stop
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={runTests} disabled={isSubmitted}>
+                  <ClipboardList className="size-3.5" /> Run Tests
+                </Button>
+              )}
               <Button size="sm" onClick={submitActiveQuestion} disabled={isSubmitting || isSubmitted}>
                 <Send className="size-3.5" /> {isSubmitted ? "Submitted" : isSubmitting ? "Submitting…" : "Submit"}
               </Button>
             </div>
           </div>
+
+          {activeState.submitError && (
+            <p className="border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+              {activeState.submitError}
+            </p>
+          )}
 
           <PanelGroup orientation="vertical" className="min-h-0 flex-1">
             <Panel defaultSize={65} minSize={30}>
