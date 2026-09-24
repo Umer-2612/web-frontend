@@ -16,6 +16,7 @@ import {
   type Job,
   type ResumeLink,
 } from "@/lib/api";
+import { ROUND_LABELS } from "@/lib/interview-constants";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -30,12 +31,6 @@ function formatScheduledAt(iso: string) {
     minute: "2-digit",
   });
 }
-
-const ROUND_LABELS: Record<string, string> = {
-  dsa: "DSA",
-  vscode: "VS Code",
-  technical_ai: "Technical (AI)",
-};
 
 /** Wraps the exact resume text a link was attached to (see core-api's
  * ExtractedLink) in an <a>, wherever that text shows up. Only ever called on
