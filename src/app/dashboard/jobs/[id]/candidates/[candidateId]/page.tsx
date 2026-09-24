@@ -266,18 +266,23 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                     </Badge>
                   ))}
                 </div>
-                {session.rounds
-                  .filter((round) => round.submission)
-                  .map((round) => (
-                    <details key={round.id} className="mt-2 text-sm">
-                      <summary className="cursor-pointer text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
-                        {ROUND_LABELS[round.round_type] ?? round.round_type} submission ({round.submission?.language})
-                      </summary>
-                      <pre className="mt-2 max-h-80 overflow-auto rounded-md bg-zinc-50 p-3 text-xs text-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
-                        {round.submission?.code}
-                      </pre>
-                    </details>
-                  ))}
+                {session.rounds.flatMap((round) =>
+                  Object.entries(round.submissions ?? {}).map(([questionId, submission]) => {
+                    const questionNumber = round.question_ids.indexOf(questionId) + 1;
+                    return (
+                      <details key={questionId} className="mt-2 text-sm">
+                        <summary className="cursor-pointer text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                          {ROUND_LABELS[round.round_type] ?? round.round_type}, question {questionNumber} (
+                          {submission.language}, {submission.test_results.passed}/{submission.test_results.total} tests
+                          passed)
+                        </summary>
+                        <pre className="mt-2 max-h-80 overflow-auto rounded-md bg-zinc-50 p-3 text-xs text-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+                          {submission.code}
+                        </pre>
+                      </details>
+                    );
+                  }),
+                )}
               </div>
             ))}
           </div>
