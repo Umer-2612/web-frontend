@@ -52,28 +52,28 @@ export default function InterviewPortalPage({ params }: { params: Promise<{ toke
           const Icon = meta.icon;
           const isDsa = round.round_type === "dsa";
           const isDone = round.status === "completed";
-          const isEnabled = isDsa;
+          const isClickable = isDsa && !isDone;
+
+          const cardStyle = isDone
+            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/10"
+            : isClickable
+              ? "border-zinc-200 bg-white hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-indigo-700"
+              : "border-zinc-100 bg-zinc-50 opacity-60 dark:border-zinc-900 dark:bg-zinc-950";
 
           const content = (
-            <div
-              className={`flex items-center gap-4 rounded-2xl border p-4 transition-colors ${
-                isEnabled
-                  ? "border-zinc-200 bg-white hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-indigo-700"
-                  : "border-zinc-100 bg-zinc-50 opacity-60 dark:border-zinc-900 dark:bg-zinc-950"
-              }`}
-            >
+            <div className={`flex items-center gap-4 rounded-2xl border p-4 transition-colors ${cardStyle}`}>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300">
                 <Icon className="size-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{meta.label}</p>
                 <p className="text-xs text-zinc-500">
-                  {isDone ? "Submitted" : isEnabled ? "Ready to start" : "Coming soon"}
+                  {isDone ? "Complete" : isClickable ? "Ready to start" : "Coming soon"}
                 </p>
               </div>
               {isDone ? (
                 <CheckCircle2 className="size-5 shrink-0 text-emerald-500" />
-              ) : isEnabled ? (
+              ) : isClickable ? (
                 <ChevronRight className="size-5 shrink-0 text-zinc-400" />
               ) : (
                 <Lock className="size-4 shrink-0 text-zinc-400" />
@@ -81,7 +81,7 @@ export default function InterviewPortalPage({ params }: { params: Promise<{ toke
             </div>
           );
 
-          if (!isEnabled) {
+          if (!isClickable) {
             return <div key={round.id}>{content}</div>;
           }
 
