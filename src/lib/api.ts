@@ -116,9 +116,10 @@ export type InterviewRoundType = "dsa" | "vscode" | "technical_ai";
 export type InterviewRoundStatus = "pending" | "completed";
 export type InterviewSessionStatus = "scheduled" | "completed" | "cancelled";
 
-export interface RoundSubmission {
+export interface QuestionSubmission {
   code: string;
   language: string;
+  test_results: { passed: number; total: number };
   submitted_at: string;
 }
 
@@ -128,7 +129,10 @@ export interface InterviewRound {
   round_type: InterviewRoundType;
   sequence: number;
   status: InterviewRoundStatus;
-  submission: RoundSubmission | null;
+  question_ids: string[];
+  started_at: string | null;
+  /** Keyed by question id, only present once that question is submitted. */
+  submissions: Record<string, QuestionSubmission> | null;
   created_at: string;
 }
 
