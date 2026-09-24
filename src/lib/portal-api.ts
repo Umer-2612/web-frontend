@@ -122,12 +122,18 @@ async function portalRequest<T>(path: string, init?: RequestInit): Promise<T> {
  * A request that never starts streaming (validation failed before any result was
  * ready) still comes back as the usual `{ error: {...} }` JSON, surfaced the same
  * way portalRequest does. */
-async function streamPortalRequest(path: string, body: unknown, onEvent: (event: RunTestsEvent) => void): Promise<void> {
+async function streamPortalRequest(
+  path: string,
+  body: unknown,
+  onEvent: (event: RunTestsEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok || !res.body) {
@@ -181,7 +187,8 @@ export const portalApi = {
     code: string,
     language: string,
     onEvent: (event: RunTestsEvent) => void,
-  ) => streamPortalRequest(`/portal/${token}/dsa/questions/${questionId}/run-tests`, { code, language }, onEvent),
+    signal?: AbortSignal,
+  ) => streamPortalRequest(`/portal/${token}/dsa/questions/${questionId}/run-tests`, { code, language }, onEvent, signal),
   submitDsaQuestion: (token: string, questionId: string, code: string, language: string) =>
     portalRequest<DsaSubmission>(`/portal/${token}/dsa/questions/${questionId}/submit`, {
       method: "POST",
