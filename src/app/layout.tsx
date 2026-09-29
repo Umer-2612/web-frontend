@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => (
   <html lang="en" suppressHydrationWarning>
-    <body className={cn("min-h-screen font-sans", fonts)}>
+    <body className={cn("min-h-screen font-sans", fonts)} suppressHydrationWarning>
       <ThemeProvider attribute="class">{children}</ThemeProvider>
     </body>
   </html>

@@ -123,6 +123,15 @@ export interface QuestionSubmission {
   submitted_at: string;
 }
 
+/** One time the candidate's tab lost focus or fullscreen and came back. Proctoring
+ * signal only, a hiring manager reads it, it never blocked the candidate or changed
+ * grading. */
+export interface FocusLossEvent {
+  left_at: string;
+  returned_at: string;
+  duration_ms: number;
+}
+
 export interface InterviewRound {
   id: string;
   session_id: string;
@@ -133,6 +142,8 @@ export interface InterviewRound {
   started_at: string | null;
   /** Keyed by question id, only present once that question is submitted. */
   submissions: Record<string, QuestionSubmission> | null;
+  /** Only ever populated for a `dsa` round. */
+  focus_loss_events: FocusLossEvent[] | null;
   created_at: string;
 }
 

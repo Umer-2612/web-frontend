@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { GradedTestCase } from "@/lib/portal-api";
 
 export interface LiveTestRun {
@@ -11,9 +12,15 @@ export interface LiveTestRun {
  * Detail (input/expected/actual) only shows for a failed, unlocked case, same as a
  * typical test runner's output only explaining what went wrong. */
 export function TestResultsPanel({ testRun, totalTestCases }: { testRun: LiveTestRun | null; totalTestCases: number }) {
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [testRun?.results.length]);
+
   if (!testRun) {
     return (
-      <p className="px-3 py-2 text-xs text-zinc-400">
+      <p className="h-full bg-zinc-950 px-3 py-2 text-xs text-zinc-500">
         Click &quot;Run Tests&quot; to check your code against this question&apos;s test cases.
       </p>
     );
@@ -21,15 +28,16 @@ export function TestResultsPanel({ testRun, totalTestCases }: { testRun: LiveTes
 
   const { results, isRunning, error } = testRun;
   const passed = results.filter((r) => r.result.passed).length;
+  const allPassed = !isRunning && !error && results.length === totalTestCases && passed === results.length;
 
   return (
     <div className="h-full overflow-auto bg-zinc-950 px-3 py-2 font-mono text-xs">
-      <p className="text-zinc-500">
+      <p className={allPassed ? "font-semibold text-emerald-400" : "text-zinc-500"}>
         {isRunning
           ? `Running test cases… (${results.length}/${totalTestCases})`
           : error
             ? "Grading failed"
-            : `${passed}/${results.length} passed`}
+            : `${passed}/${results.length} passed${allPassed ? " — all clear" : ""}`}
       </p>
       {results.map(({ index, result }) => (
         <div key={index} className="mt-1">
@@ -49,6 +57,7 @@ export function TestResultsPanel({ testRun, totalTestCases }: { testRun: LiveTes
       ))}
       {isRunning && <p className="mt-1 animate-pulse text-zinc-600">…</p>}
       {error && <p className="mt-2 text-red-400">Error: {error}</p>}
+      <div ref={endRef} />
     </div>
   );
 }
