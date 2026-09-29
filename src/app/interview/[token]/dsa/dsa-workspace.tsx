@@ -10,6 +10,7 @@ import { ResizeHandle } from "@/components/ui/resize-handle";
 import { DSA_EDITOR_OPTIONS, DSA_LANGUAGES, getDsaLanguage } from "@/lib/dsa-constants";
 import { PortalApiError, portalApi, type DsaQuestion, type DsaRoundView, type DsaSubmission } from "@/lib/portal-api";
 import { ConsolePanel } from "./console-panel";
+import { SubmitConfirmDialog } from "./submit-confirm-dialog";
 import { TestResultsPanel, type LiveTestRun } from "./test-results-panel";
 import type { OutputLine } from "./types";
 import { useFocusLossProctoring } from "./use-focus-loss-proctoring";
@@ -81,6 +82,7 @@ export function DsaWorkspace({
   const [isRunning, setIsRunning] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
 
   const statesRef = useRef(states);
@@ -233,12 +235,13 @@ export function DsaWorkspace({
   };
 
   const submitActiveQuestion = async () => {
-    if (!window.confirm(`Submit your solution for "${activeQuestion.title}"? It will be graded against all test cases and you won't be able to change it after this.`)) return;
+    setConfirmingSubmit(false);
     setIsSubmitting(true);
     setBottomTab("tests");
     await submitQuestion(activeQuestion.id);
     setIsSubmitting(false);
   };
+
 
   const reenterFullscreen = () => {
     document.documentElement.requestFullscreen?.().catch(() => {});
@@ -253,6 +256,13 @@ export function DsaWorkspace({
 
   return (
     <div className="flex h-dvh flex-col bg-zinc-50 dark:bg-zinc-950">
+      <SubmitConfirmDialog
+        open={confirmingSubmit}
+        questionTitle={activeQuestion.title}
+        onCancel={() => setConfirmingSubmit(false)}
+        onConfirm={() => void submitActiveQuestion()}
+      />
+
       {!isFullscreen && (
         <button
           onClick={reenterFullscreen}
@@ -377,7 +387,7 @@ export function DsaWorkspace({
               )}
               <Button
                 size="sm"
-                onClick={submitActiveQuestion}
+                onClick={() => setConfirmingSubmit(true)}
                 disabled={isLocked}
                 title="Final: grades your solution against all test cases and locks this question"
               >
