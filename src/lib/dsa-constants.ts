@@ -25,10 +25,18 @@ export function getDsaLanguage(id: string): DsaLanguage {
 
 export const DSA_EDITOR_OPTIONS = {
   fontSize: 14,
+  fontFamily: "Menlo, Monaco, Consolas, 'SF Mono', 'Fira Code', monospace",
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
   automaticLayout: true,
   tabSize: 2,
   wordWrap: "on" as const,
-  padding: { top: 16 },
+  padding: { top: 16, bottom: 16 },
+  cursorBlinking: "smooth" as const,
+  cursorSmoothCaretAnimation: "on" as const,
+  smoothScrolling: true,
+  renderLineHighlight: "all" as const,
+  bracketPairColorization: { enabled: true },
+  guides: { bracketPairs: true, indentation: true },
+  scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
 };

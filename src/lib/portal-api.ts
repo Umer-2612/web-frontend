@@ -85,6 +85,14 @@ export type RunTestsEvent =
   | { type: "done"; passed: number; total: number }
   | { type: "error"; message: string };
 
+/** Same shape as RunTestsEvent, but submit's "done" line carries the saved
+ * submission itself instead of just a pass/fail count, so the caller doesn't
+ * need a separate round-trip to learn what got persisted. */
+export type SubmitDsaQuestionEvent =
+  | { type: "result"; index: number; result: GradedTestCase }
+  | { type: "done"; submission: DsaSubmission }
+  | { type: "error"; message: string };
+
 export class PortalApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -122,10 +130,10 @@ async function portalRequest<T>(path: string, init?: RequestInit): Promise<T> {
  * A request that never starts streaming (validation failed before any result was
  * ready) still comes back as the usual `{ error: {...} }` JSON, surfaced the same
  * way portalRequest does. */
-async function streamPortalRequest(
+async function streamPortalRequest<TEvent>(
   path: string,
   body: unknown,
-  onEvent: (event: RunTestsEvent) => void,
+  onEvent: (event: TEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -158,10 +166,10 @@ async function streamPortalRequest(
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
     for (const line of lines) {
-      if (line.trim()) onEvent(JSON.parse(line) as RunTestsEvent);
+      if (line.trim()) onEvent(JSON.parse(line) as TEvent);
     }
   }
-  if (buffer.trim()) onEvent(JSON.parse(buffer) as RunTestsEvent);
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as TEvent);
 }
 
 export interface ExecuteResult {
@@ -188,11 +196,19 @@ export const portalApi = {
     language: string,
     onEvent: (event: RunTestsEvent) => void,
     signal?: AbortSignal,
-  ) => streamPortalRequest(`/portal/${token}/dsa/questions/${questionId}/run-tests`, { code, language }, onEvent, signal),
-  submitDsaQuestion: (token: string, questionId: string, code: string, language: string) =>
-    portalRequest<DsaSubmission>(`/portal/${token}/dsa/questions/${questionId}/submit`, {
+  ) => streamPortalRequest<RunTestsEvent>(`/portal/${token}/dsa/questions/${questionId}/run-tests`, { code, language }, onEvent, signal),
+  /** Streamed the same way runDsaTests is: submit grades sequentially through Judge0,
+   * roughly a second per test case, so a plain request/response would leave the
+   * candidate staring at "Submitting…" with no feedback for the full 10-20s it takes. */
+  submitDsaQuestion: (token: string, questionId: string, code: string, language: string, onEvent: (event: SubmitDsaQuestionEvent) => void) =>
+    streamPortalRequest<SubmitDsaQuestionEvent>(`/portal/${token}/dsa/questions/${questionId}/submit`, { code, language }, onEvent),
+  /** Warn-and-log proctoring only: reported once the candidate's tab regains focus or
+   * fullscreen after losing it. Never blocks the candidate, just a signal a hiring
+   * manager can review later. */
+  reportFocusLoss: (token: string, leftAt: string, returnedAt: string) =>
+    portalRequest<{ count: number }>(`/portal/${token}/dsa/focus-loss`, {
       method: "POST",
-      body: JSON.stringify({ code, language }),
+      body: JSON.stringify({ left_at: leftAt, returned_at: returnedAt }),
     }),
   /** Ad hoc "Run" with arbitrary stdin, calls judge-service directly, never saved
    * and never graded against a question's test cases (that's runDsaTests). */

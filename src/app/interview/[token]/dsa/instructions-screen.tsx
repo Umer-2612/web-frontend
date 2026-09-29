@@ -7,7 +7,10 @@ const RULES = [
   { icon: Clock, text: "You'll get 2 coding questions and 60 minutes total to work on both, starting the moment you click Start." },
   { icon: CheckCircle2, text: "Each question shows a few worked-example test cases. The rest are hidden and used to grade your solution, you'll see how many pass." },
   { icon: LockIcon, text: "Submitting a question locks in that code, it can't be edited afterward. You can submit each question separately." },
-  { icon: Maximize2, text: "This opens in fullscreen once you start. Please don't exit it or navigate away until you're done." },
+  {
+    icon: Maximize2,
+    text: "This opens in fullscreen once you start. Switching tabs, minimizing, or leaving fullscreen is logged with a timestamp and visible to the hiring manager, so please stay on this screen until you're done.",
+  },
 ];
 
 export function InstructionsScreen({

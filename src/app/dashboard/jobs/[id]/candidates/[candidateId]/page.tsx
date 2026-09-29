@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Check, Copy, Download, GraduationCap, Mail, Phone, User } from "lucide-react";
+import { AlertTriangle, Briefcase, Check, Copy, Download, GraduationCap, Mail, Phone, User } from "lucide-react";
 import { use, useEffect, useState, type ReactNode } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
@@ -30,6 +30,16 @@ function formatScheduledAt(iso: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+}
+
+function formatDuration(ms: number) {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
 /** Wraps the exact resume text a link was attached to (see core-api's
@@ -261,6 +271,26 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                     </Badge>
                   ))}
                 </div>
+                {session.rounds.map((round) => {
+                  const events = round.focus_loss_events ?? [];
+                  if (events.length === 0) return null;
+                  return (
+                    <details key={`${round.id}-focus-loss`} className="mt-2 text-sm">
+                      <summary className="flex cursor-pointer items-center gap-1.5 text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300">
+                        <AlertTriangle className="size-3.5" />
+                        Left the screen {events.length} time{events.length === 1 ? "" : "s"} during{" "}
+                        {ROUND_LABELS[round.round_type] ?? round.round_type}
+                      </summary>
+                      <ul className="mt-2 space-y-1 rounded-md bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                        {events.map((event, i) => (
+                          <li key={i}>
+                            {formatTime(event.left_at)} → {formatTime(event.returned_at)} (away {formatDuration(event.duration_ms)})
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  );
+                })}
                 {session.rounds.flatMap((round) =>
                   Object.entries(round.submissions ?? {}).map(([questionId, submission]) => {
                     const questionNumber = round.question_ids.indexOf(questionId) + 1;

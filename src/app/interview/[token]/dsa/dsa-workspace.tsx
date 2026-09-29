@@ -1,6 +1,6 @@
 "use client";
 
-import Editor from "@monaco-editor/react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Maximize2, Play, Send, Square, Terminal } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Group as PanelGroup, Panel } from "react-resizable-panels";
@@ -12,6 +12,7 @@ import { PortalApiError, portalApi, type DsaQuestion, type DsaRoundView, type Ds
 import { ConsolePanel } from "./console-panel";
 import { TestResultsPanel, type LiveTestRun } from "./test-results-panel";
 import type { OutputLine } from "./types";
+import { useFocusLossProctoring } from "./use-focus-loss-proctoring";
 import { formatRemaining, useRoundTimer } from "./use-round-timer";
 
 interface QuestionState {
@@ -90,6 +91,12 @@ export function DsaWorkspace({
   const activeState = states[activeQuestion.id]!;
   const isSubmitted = activeState.submission !== null;
   const allSubmitted = questions.every((q) => states[q.id]?.submission);
+  // While a test run or submission is in flight, every control except Stop is locked:
+  // switching questions, editing code, or re-running mid-grade would make it unclear
+  // which version of the code the in-progress results actually belong to.
+  const isLocked = isSubmitted || isTesting || isSubmitting;
+
+  const focusLossCount = useFocusLossProctoring(token, !allSubmitted);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -105,30 +112,43 @@ export function DsaWorkspace({
     async (questionId: string) => {
       const state = statesRef.current[questionId];
       if (!state || state.submission) return;
+
+      updateState(questionId, { testRun: { results: [], isRunning: true, error: null }, submitError: null });
+
       try {
-        const submission = await portalApi.submitDsaQuestion(token, questionId, state.code, state.language);
-        setStates((prev) => ({ ...prev, [questionId]: { ...prev[questionId]!, submission, submitError: null } }));
+        await portalApi.submitDsaQuestion(token, questionId, state.code, state.language, (event) => {
+          if (event.type === "result") {
+            applyTestRunEvent(questionId, (current) => ({
+              ...current,
+              results: [...current.results, { index: event.index, result: event.result }],
+            }));
+          } else if (event.type === "done") {
+            applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false }));
+            setStates((prev) => ({ ...prev, [questionId]: { ...prev[questionId]!, submission: event.submission, submitError: null } }));
+          } else {
+            // Surfaced on the manual-submit path (both here and in the banner below)
+            // so the candidate isn't left staring at a button that silently reverted
+            // with no explanation. Also reached from the timer-expiry auto-submit,
+            // where nobody's around to read it, that's fine, it just never gets shown.
+            applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false, error: event.message }));
+            setStates((prev) => ({ ...prev, [questionId]: { ...prev[questionId]!, submitError: event.message } }));
+          }
+        });
       } catch (err) {
-        // Surfaced on the manual-submit path so the candidate isn't left staring
-        // at a button that silently reverted with no explanation. Also reached
-        // from the timer-expiry auto-submit, where nobody's around to read it,
-        // that's fine, it just never gets shown.
-        setStates((prev) => ({
-          ...prev,
-          [questionId]: {
-            ...prev[questionId]!,
-            submitError: err instanceof PortalApiError ? err.message : "Submission failed, please try again",
-          },
-        }));
+        const message = err instanceof PortalApiError ? err.message : "Submission failed, please try again";
+        applyTestRunEvent(questionId, (current) => ({ ...current, isRunning: false, error: message }));
+        setStates((prev) => ({ ...prev, [questionId]: { ...prev[questionId]!, submitError: message } }));
       }
     },
     [token],
   );
 
-  const handleExpire = useCallback(() => {
-    Object.keys(statesRef.current).forEach((questionId) => {
-      if (!statesRef.current[questionId]?.submission) void submitQuestion(questionId);
-    });
+  // One at a time: the server serialises writes anyway, and grading both at once
+  // just doubles the load on the judge for no benefit.
+  const handleExpire = useCallback(async () => {
+    for (const questionId of Object.keys(statesRef.current)) {
+      if (!statesRef.current[questionId]?.submission) await submitQuestion(questionId);
+    }
   }, [submitQuestion]);
 
   const remainingSeconds = useRoundTimer(initialView.started_at, initialView.duration_minutes, handleExpire);
@@ -139,7 +159,7 @@ export function DsaWorkspace({
   };
 
   const changeLanguage = (language: string) => {
-    if (isSubmitted) return;
+    if (isLocked) return;
     updateState(activeQuestion.id, { language, code: getStarterCode(activeQuestion, language) });
   };
 
@@ -213,14 +233,22 @@ export function DsaWorkspace({
   };
 
   const submitActiveQuestion = async () => {
-    if (!window.confirm(`Submit "${activeQuestion.title}"? You won't be able to change it after this.`)) return;
+    if (!window.confirm(`Submit your solution for "${activeQuestion.title}"? It will be graded against all test cases and you won't be able to change it after this.`)) return;
     setIsSubmitting(true);
+    setBottomTab("tests");
     await submitQuestion(activeQuestion.id);
     setIsSubmitting(false);
   };
 
   const reenterFullscreen = () => {
     document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
+  // Swallows Cmd/Ctrl+S so it doesn't fall through to the browser's own "Save
+  // Page As" dialog, matching VSCode's own within-editor save shortcut, even
+  // though there's nothing to actually save here, code lives in React state.
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {});
   };
 
   return (
@@ -238,11 +266,15 @@ export function DsaWorkspace({
         <div className="flex items-center gap-1">
           {questions.map((q, i) => {
             const submitted = Boolean(states[q.id]?.submission);
+            // Questions unlock in order: this one opens only once the one before it is submitted.
+            const isUnlocked = i === 0 || Boolean(states[questions[i - 1]!.id]?.submission);
             return (
               <button
                 key={q.id}
                 onClick={() => setActiveIndex(i)}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                disabled={!isUnlocked || isTesting || isSubmitting}
+                title={isUnlocked ? undefined : `Submit Question ${i} to unlock this one`}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 ${
                   i === activeIndex
                     ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
                     : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
@@ -254,14 +286,24 @@ export function DsaWorkspace({
             );
           })}
         </div>
-        <div
-          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-            isTimeCritical
-              ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
-          }`}
-        >
-          {remainingSeconds !== null ? formatRemaining(remainingSeconds) : "--:--"}
+        <div className="flex items-center gap-2">
+          {focusLossCount > 0 && (
+            <div
+              title="Leaving the screen during the round is logged and visible to the hiring manager."
+              className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+            >
+              <AlertTriangle className="size-3.5" /> Left screen {focusLossCount}x (logged)
+            </div>
+          )}
+          <div
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              isTimeCritical
+                ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+            }`}
+          >
+            {remainingSeconds !== null ? formatRemaining(remainingSeconds) : "--:--"}
+          </div>
         </div>
       </header>
 
@@ -311,7 +353,7 @@ export function DsaWorkspace({
             <select
               value={activeState.language}
               onChange={(e) => changeLanguage(e.target.value)}
-              disabled={isSubmitted}
+              disabled={isLocked}
               className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm text-zinc-700 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
             >
               {DSA_LANGUAGES.map((lang) => (
@@ -321,7 +363,7 @@ export function DsaWorkspace({
               ))}
             </select>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={runCode} disabled={isRunning || isSubmitted}>
+              <Button variant="outline" size="sm" onClick={runCode} disabled={isRunning || isLocked}>
                 {isRunning ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />} Run
               </Button>
               {isTesting ? (
@@ -329,12 +371,17 @@ export function DsaWorkspace({
                   <Square className="size-3.5" /> Stop
                 </Button>
               ) : (
-                <Button variant="outline" size="sm" onClick={runTests} disabled={isSubmitted}>
-                  <ClipboardList className="size-3.5" /> Run Tests
+                <Button variant="outline" size="sm" onClick={runTests} disabled={isSubmitted || isSubmitting}>
+                  <ClipboardList className="size-3.5" /> Run Tests (practice)
                 </Button>
               )}
-              <Button size="sm" onClick={submitActiveQuestion} disabled={isSubmitting || isSubmitted}>
-                <Send className="size-3.5" /> {isSubmitted ? "Submitted" : isSubmitting ? "Submitting…" : "Submit"}
+              <Button
+                size="sm"
+                onClick={submitActiveQuestion}
+                disabled={isLocked}
+                title="Final: grades your solution against all test cases and locks this question"
+              >
+                <Send className="size-3.5" /> {isSubmitted ? "Submitted" : isSubmitting ? "Submitting…" : "Submit Solution"}
               </Button>
             </div>
           </div>
@@ -351,28 +398,29 @@ export function DsaWorkspace({
                 height="100%"
                 language={getDsaLanguage(activeState.language).monaco}
                 value={activeState.code}
-                onChange={(value) => !isSubmitted && updateState(activeQuestion.id, { code: value ?? "" })}
+                onChange={(value) => !isLocked && updateState(activeQuestion.id, { code: value ?? "" })}
+                onMount={handleEditorMount}
                 theme="vs-dark"
-                options={{ ...DSA_EDITOR_OPTIONS, readOnly: isSubmitted }}
+                options={{ ...DSA_EDITOR_OPTIONS, readOnly: isLocked }}
               />
             </Panel>
 
             <ResizeHandle direction="vertical" />
 
             <Panel defaultSize={35} minSize={15} className="flex min-h-0 flex-col">
-              <div className="flex h-8 shrink-0 items-center gap-1 border-b border-zinc-200 px-2 dark:border-zinc-800">
+              <div className="flex h-8 shrink-0 items-center gap-1 border-b border-zinc-800 bg-zinc-950 px-2">
                 <button
                   onClick={() => setBottomTab("console")}
-                  className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium ${
-                    bottomTab === "console" ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100" : "text-zinc-500"
+                  className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                    bottomTab === "console" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   <Terminal className="size-3.5" /> Console
                 </button>
                 <button
                   onClick={() => setBottomTab("tests")}
-                  className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium ${
-                    bottomTab === "tests" ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100" : "text-zinc-500"
+                  className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                    bottomTab === "tests" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   <ClipboardList className="size-3.5" /> Test Results
