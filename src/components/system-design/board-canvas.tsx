@@ -5,10 +5,10 @@ import "@xyflow/react/dist/style.css";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, type DragEvent } from "react";
 
-import { DRAG_MIME, isComponentType } from "@/lib/system-design/catalog-guards";
-import type { SimulationResult } from "@/lib/system-design/types";
+import { DRAG_MIME, isComponentType, type ComponentType } from "@/lib/system-design/catalog";
+import type { NodeResult, SimulationResult } from "@/lib/system-design/types";
 import { AwsNode } from "./aws-node";
-import type { AwsFlowNode, BoardState } from "./use-board-state";
+import type { AwsFlowNode, AwsNodeData, BoardState } from "./use-board-state";
 
 const NODE_TYPES = { aws: AwsNode };
 const EDGE_COLOR = { ok: "#6366f1", hot: "#f59e0b", failed: "#ef4444", idle: "#a1a1aa" };
@@ -28,7 +28,7 @@ export interface BoardCanvasProps {
   focus?: FocusRequest | null;
   onSelect?: (nodeId: string | null) => void;
   /** Blocks dropping a second Users node, etc. */
-  canAdd?: (type: import("@/lib/system-design/catalog").ComponentType) => boolean;
+  canAdd?: (type: ComponentType) => boolean;
 }
 
 /** The React Flow canvas. Must be rendered inside a <ReactFlowProvider>. */
@@ -38,14 +38,30 @@ export function BoardCanvas({ state, readOnly = false, result, stale = false, fo
   // Measured container size; fitting before it is known zooms all the way out.
   const hasSize = useStore((store) => store.width > 0 && store.height > 0);
   const hasFitted = useRef(false);
+  const { addNode } = state;
   const { resolvedTheme } = useTheme();
 
   const simById = useMemo(() => new Map(result?.nodes.map((n) => [n.node_id, n]) ?? []), [result]);
 
-  const nodes = useMemo(
-    () => state.nodes.map((n) => ({ ...n, data: { ...n.data, sim: simById.get(n.id), stale } })),
-    [state.nodes, simById, stale],
-  );
+  // React Flow only skips re-rendering a node when its `data` keeps its identity. Rebuilding every node's data on
+  // each change (e.g. every frame of a drag, when only `position` moves) re-rendered the whole board, so reuse the
+  // decorated object for any node whose data, simulation result and staleness are unchanged.
+  const decorated = useRef(new Map<string, { source: AwsNodeData; sim: NodeResult | undefined; stale: boolean; data: AwsNodeData }>());
+  const nodes = useMemo(() => {
+    const cache = decorated.current;
+    const live = new Set<string>();
+    const out = state.nodes.map((n) => {
+      live.add(n.id);
+      const sim = simById.get(n.id);
+      const hit = cache.get(n.id);
+      if (hit && hit.source === n.data && hit.sim === sim && hit.stale === stale) return { ...n, data: hit.data };
+      const data = { ...n.data, sim, stale };
+      cache.set(n.id, { source: n.data, sim, stale, data });
+      return { ...n, data };
+    });
+    for (const id of cache.keys()) if (!live.has(id)) cache.delete(id);
+    return out;
+  }, [state.nodes, simById, stale]);
 
   // Arrows show where the load flows once a simulation has run: animated while traffic reaches the
   // target, red when the target is overloaded.
@@ -78,9 +94,9 @@ export function BoardCanvas({ state, readOnly = false, result, stale = false, fo
       event.preventDefault();
       if (canAdd && !canAdd(type)) return;
       const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      state.addNode(type, { x: point.x - 56, y: point.y - 28 });
+      addNode(type, { x: point.x - 56, y: point.y - 28 });
     },
-    [readOnly, canAdd, screenToFlowPosition, state],
+    [readOnly, canAdd, screenToFlowPosition, addNode],
   );
 
   const handleSelection = useCallback(({ nodes: selected }: OnSelectionChangeParams) => onSelect?.(selected[0]?.id ?? null), [onSelect]);

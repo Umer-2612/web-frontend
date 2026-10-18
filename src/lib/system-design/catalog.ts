@@ -89,3 +89,7 @@ export function getComponent(type: ComponentType): ComponentInfo {
 
 /** Drag payload key used between the sidebar and the canvas. */
 export const DRAG_MIME = "application/x-aws-component";
+
+export function isComponentType(value: string): value is ComponentType {
+  return (COMPONENT_TYPES as readonly string[]).includes(value);
+}

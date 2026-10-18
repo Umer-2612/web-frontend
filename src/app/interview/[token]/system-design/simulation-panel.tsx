@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Play, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { AiHints, FindingsList, ResultSummary } from "@/components/system-design/simulation-results";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,9 @@ const AI_NOTE: Partial<Record<AiStatus, string>> = {
   unavailable: "The AI reviewer couldn't be reached this time. The load test above is still accurate.",
 };
 
-export function SimulationPanel({
+function SimulationPanelView({
   token,
-  board,
+  getBoard,
   structureKey,
   result,
   resultKey,
@@ -30,7 +30,8 @@ export function SimulationPanel({
   onResult,
 }: {
   token: string;
-  board: Board;
+  /** Read at click time, so this panel's props stay stable while the candidate drags nodes around. */
+  getBoard: () => Board;
   structureKey: string;
   result: SimulationResult | null;
   resultKey: string | null;
@@ -67,7 +68,7 @@ export function SimulationPanel({
     try {
       await portalApi.simulate(
         token,
-        board,
+        getBoard(),
         scenario,
         (event) => {
           if (event.type === "engine") onResult(event.result, structureKey);
@@ -161,3 +162,6 @@ export function SimulationPanel({
     </div>
   );
 }
+
+/** Memoised: it would otherwise re-render on every frame of a node drag while hidden behind another tab. */
+export const SimulationPanel = memo(SimulationPanelView);

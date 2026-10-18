@@ -65,13 +65,17 @@ function Workspace({ token, initialView, onRoundComplete }: { token: string; ini
   const present = useMemo(() => new Set<ComponentType>(state.nodes.map((n) => n.data.type)), [state.nodes]);
   const selectedNode = useMemo(() => state.nodes.find((n) => n.id === selectedId) ?? null, [state.nodes, selectedId]);
 
-  const nodeLabel = useCallback(
-    (id: string) => {
-      const node = state.nodes.find((n) => n.id === id);
-      return node ? node.data.label || getComponent(node.data.type).label : "that component";
-    },
-    [state.nodes],
-  );
+  // Read through refs so these callbacks keep one identity for the memoised side panels.
+  const nodesRef = useRef(state.nodes);
+  nodesRef.current = state.nodes;
+  const boardRef = useRef(state.board);
+  boardRef.current = state.board;
+  const getBoard = useCallback(() => boardRef.current, []);
+  const nodeLabel = useCallback((id: string) => {
+    const node = nodesRef.current.find((n) => n.id === id);
+    return node ? node.data.label || getComponent(node.data.type).label : "that component";
+  }, []);
+  const handleResult = useCallback((result: SimulationResult, key: string) => setRun({ result, key }), []);
 
   const handleSelect = useCallback((id: string | null) => {
     setSelectedId(id);
@@ -218,7 +222,7 @@ function Workspace({ token, initialView, onRoundComplete }: { token: string; ini
             <div hidden={tab !== "simulation"}>
               <SimulationPanel
                 token={token}
-                board={state.board}
+                getBoard={getBoard}
                 structureKey={state.structureKey}
                 result={run?.result ?? null}
                 resultKey={run?.key ?? null}
@@ -228,7 +232,7 @@ function Workspace({ token, initialView, onRoundComplete }: { token: string; ini
                 disabled={submitting}
                 nodeLabel={nodeLabel}
                 onFocusNode={handleFocusNode}
-                onResult={(result, key) => setRun({ result, key })}
+                onResult={handleResult}
               />
             </div>
           </div>

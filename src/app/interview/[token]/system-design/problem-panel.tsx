@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import type { SystemDesignRoundView } from "@/lib/portal-api";
 import { formatRps } from "@/lib/system-design/format";
 
@@ -7,7 +9,7 @@ const DIFFICULTY_STYLE = {
   hard: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
 };
 
-export function ProblemPanel({ problem }: { problem: SystemDesignRoundView["problem"] }) {
+function ProblemPanelView({ problem }: { problem: SystemDesignRoundView["problem"] }) {
   const r = problem.requirements;
   const facts = [
     ["Target load", `${formatRps(r.target_rps)} requests/s`],
@@ -42,3 +44,5 @@ export function ProblemPanel({ problem }: { problem: SystemDesignRoundView["prob
     </div>
   );
 }
+
+export const ProblemPanel = memo(ProblemPanelView);
