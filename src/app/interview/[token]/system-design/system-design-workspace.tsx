@@ -198,10 +198,24 @@ function Workspace({ token, initialView, onRoundComplete }: { token: string; ini
               </button>
             ))}
           </div>
+          {/* All three stay mounted and are just hidden, so the load test keeps its scenario, hints and
+              run count when the candidate flips to Settings and back. */}
           <div role="tabpanel" id="sd-tabpanel" aria-labelledby={`sd-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto">
-            {tab === "problem" && <ProblemPanel problem={initialView.problem} />}
-            {tab === "config" && <NodeConfigPanel node={selectedNode} onConfig={state.updateConfig} onLabel={state.updateLabel} onRemove={(id) => { state.removeNode(id); setSelectedId(null); }} />}
-            {tab === "simulation" && (
+            <div hidden={tab !== "problem"}>
+              <ProblemPanel problem={initialView.problem} />
+            </div>
+            <div hidden={tab !== "config"}>
+              <NodeConfigPanel
+                node={selectedNode}
+                onConfig={state.updateConfig}
+                onLabel={state.updateLabel}
+                onRemove={(id) => {
+                  state.removeNode(id);
+                  setSelectedId(null);
+                }}
+              />
+            </div>
+            <div hidden={tab !== "simulation"}>
               <SimulationPanel
                 token={token}
                 board={state.board}
@@ -216,7 +230,7 @@ function Workspace({ token, initialView, onRoundComplete }: { token: string; ini
                 onFocusNode={handleFocusNode}
                 onResult={(result, key) => setRun({ result, key })}
               />
-            )}
+            </div>
           </div>
         </Panel>
       </PanelGroup>

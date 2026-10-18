@@ -11,7 +11,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileDropzone } from "@/components/ui/file-dropzone";
 import { RichTextContent } from "@/components/ui/rich-text-content";
-import { api, ApiError, type AuthUser, type Candidate, type InterviewSession, type Job } from "@/lib/api";
+import { api, ApiError, type AuthUser, type Candidate, type InterviewSession, type Job, type SystemDesignProblem } from "@/lib/api";
 import { ROUND_LABELS } from "@/lib/interview-constants";
 
 function formatDate(iso: string) {
@@ -50,9 +50,19 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [scheduledSession, setScheduledSession] = useState<InterviewSession | null>(null);
+  // Optional fourth round. "" means a regular three-round interview.
+  const [problems, setProblems] = useState<SystemDesignProblem[]>([]);
+  const [systemDesignProblemId, setSystemDesignProblemId] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
+  // Loaded when the dialog opens so the list reflects problems created a moment ago.
+  useEffect(() => {
+    if (!scheduleFor) return;
+    api.listSystemDesignProblems().then(setProblems).catch(() => setProblems([]));
+  }, [scheduleFor]);
+
   const closeScheduleDialog = () => {
+    setSystemDesignProblemId("");
     setScheduleFor(null);
     setScheduledAt(undefined);
     setScheduleError(null);
@@ -123,7 +133,7 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
     setScheduleError(null);
     setScheduling(true);
     try {
-      const session = await api.scheduleInterview(id, scheduleFor.id, scheduledAt.toISOString());
+      const session = await api.scheduleInterview(id, scheduleFor.id, scheduledAt.toISOString(), systemDesignProblemId || undefined);
       setLatestInterviews((prev) => ({ ...prev, [scheduleFor.id]: session }));
       setScheduledSession(session);
     } catch (err) {
@@ -324,6 +334,25 @@ const JobDetailPage = ({ params }: { params: Promise<{ id: string }> }) => {
               <form onSubmit={onSchedule} className="space-y-4">
                 {scheduleError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{scheduleError}</p>}
                 <DateTimePicker value={scheduledAt} onChange={setScheduledAt} minDate={new Date()} />
+                <div className="space-y-1.5">
+                  <label htmlFor="system-design-problem" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    System design round
+                  </label>
+                  <select
+                    id="system-design-problem"
+                    value={systemDesignProblemId}
+                    onChange={(e) => setSystemDesignProblemId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+                  >
+                    <option value="">No system design round</option>
+                    {problems.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title} ({p.difficulty}){p.company_id === null ? "" : " · yours"}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-zinc-500">Adds a round where the candidate designs a system on a board and load tests it.</p>
+                </div>
                 <Button type="submit" disabled={scheduling || !scheduledAt} className="w-full">
                   {scheduling ? "Scheduling…" : "Schedule"}
                 </Button>

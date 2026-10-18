@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Building2, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Briefcase, Building2, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Network, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -27,6 +27,7 @@ function navItemsForRole(role: UserRole) {
   return [
     dashboardItem,
     { href: "/dashboard/jobs", label: "Jobs", icon: <Briefcase size={16} /> },
+    { href: "/dashboard/system-design-problems", label: "System design", icon: <Network size={16} /> },
     { href: "/dashboard/team", label: "Team", icon: <Users size={16} /> },
   ];
 }

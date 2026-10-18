@@ -16,6 +16,7 @@ import {
   type Job,
   type ResumeLink,
 } from "@/lib/api";
+import { SystemDesignReview } from "@/components/system-design/design-review";
 import { ROUND_LABELS } from "@/lib/interview-constants";
 
 function formatDate(iso: string) {
@@ -291,8 +292,14 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                     </details>
                   );
                 })}
+                {session.rounds
+                  .filter((round) => round.round_type === "system_design")
+                  .map((round) => (
+                    <SystemDesignReview key={`${round.id}-system-design`} round={round} />
+                  ))}
                 {session.rounds.flatMap((round) =>
-                  Object.entries(round.submissions ?? {}).map(([questionId, submission]) => {
+                  // A system design round's `submissions` is a different shape (reviewed above), not per-question code.
+                  (round.round_type === "system_design" ? [] : Object.entries(round.submissions ?? {})).map(([questionId, submission]) => {
                     const questionNumber = round.question_ids.indexOf(questionId) + 1;
                     return (
                       <details key={questionId} className="mt-2 text-sm">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Background, BackgroundVariant, Controls, MarkerType, MiniMap, ReactFlow, useNodesInitialized, useReactFlow, type Edge, type OnSelectionChangeParams } from "@xyflow/react";
+import { Background, BackgroundVariant, Controls, MarkerType, MiniMap, ReactFlow, useNodesInitialized, useReactFlow, useStore, type Edge, type OnSelectionChangeParams } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, type DragEvent } from "react";
@@ -35,6 +35,8 @@ export interface BoardCanvasProps {
 export function BoardCanvas({ state, readOnly = false, result, stale = false, focus, onSelect, canAdd }: BoardCanvasProps) {
   const { screenToFlowPosition, setCenter, getNode, fitView } = useReactFlow<AwsFlowNode>();
   const nodesInitialized = useNodesInitialized();
+  // Measured container size; fitting before it is known zooms all the way out.
+  const hasSize = useStore((store) => store.width > 0 && store.height > 0);
   const hasFitted = useRef(false);
   const { resolvedTheme } = useTheme();
 
@@ -86,13 +88,13 @@ export function BoardCanvas({ state, readOnly = false, result, stale = false, fo
   // Fit once, after the nodes are measured and the resizable panel has its real width. The `fitView`
   // prop alone runs too early (the panel is still 0px wide) and leaves a tiny, off-centre board.
   useEffect(() => {
-    if (!nodesInitialized || hasFitted.current || state.nodes.length === 0) return;
+    if (!nodesInitialized || !hasSize || hasFitted.current || state.nodes.length === 0) return;
     const timer = setTimeout(() => {
       hasFitted.current = true;
       void fitView({ padding: 0.3, maxZoom: 1, duration: 0 });
     }, 150);
     return () => clearTimeout(timer);
-  }, [nodesInitialized, state.nodes.length, fitView]);
+  }, [nodesInitialized, hasSize, state.nodes.length, fitView]);
 
   useEffect(() => {
     if (!focus) return;
