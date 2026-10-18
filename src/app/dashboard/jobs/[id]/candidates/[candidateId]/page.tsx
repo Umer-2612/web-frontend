@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Briefcase, Check, Copy, Download, GraduationCap, Mail, Phone, User } from "lucide-react";
-import { use, useEffect, useState, type ReactNode } from "react";
+import { use, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { AiSpinner } from "@/components/ui/ai-loader";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/api";
 import { SystemDesignReview } from "@/components/system-design/design-review";
 import { ROUND_LABELS } from "@/lib/interview-constants";
+import { linkPadding, normalizeLinks, tidyResumeText } from "@/lib/resume-links";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -52,6 +53,10 @@ function formatDuration(ms: number) {
  * DB team", ...), and linking every one of those would be wrong, only the
  * one place that text is actually the resume's own link should become one. */
 function linkify(text: string, links: ResumeLink[]): ReactNode {
+  return linkifyTidy(tidyResumeText(text), links);
+}
+
+function linkifyTidy(text: string, links: ResumeLink[]): ReactNode {
   if (!text || links.length === 0) return text;
 
   // Prefers the earliest match, and among matches starting at the same spot
@@ -74,9 +79,13 @@ function linkify(text: string, links: ResumeLink[]): ReactNode {
   const match = text.slice(best.index, best.index + best.link.label.length);
   const after = text.slice(best.index + best.link.label.length);
 
+  // Never let an inserted link touch the word next to it ("PlatformLive Demo").
+  const { lead, trail } = linkPadding(before, after);
+
   return (
     <>
       {before}
+      {lead}
       <a
         href={best.link.url}
         target="_blank"
@@ -85,7 +94,8 @@ function linkify(text: string, links: ResumeLink[]): ReactNode {
       >
         {match}
       </a>
-      {linkify(after, links)}
+      {trail}
+      {linkifyTidy(after, links)}
     </>
   );
 }
@@ -191,11 +201,13 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
     });
   };
 
+  // Before the early returns below: hooks must run on every render.
+  const links = useMemo(() => normalizeLinks(profile?.links ?? []), [profile]);
+
   if (loading) return <AiSpinner />;
   if (loadError) return <p className="text-sm text-red-500">{loadError}</p>;
   if (!job || !candidate) return null;
 
-  const links = profile?.links ?? [];
 
   return (
     <div className="space-y-6">
@@ -361,7 +373,9 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                   className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.heading}</h3>
-                  <ol className="list-inside list-decimal space-y-2 pl-4 text-sm text-zinc-600 dark:text-zinc-300">
+                  {/* Plain rows, not a numbered list: an entry is just a line of the resume (a project title, a
+                      contact line, a bullet), so "1. 2. 3." counted things that aren't items. */}
+                  <ul className="space-y-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
                     {entries.map((entry, i) => (
                       <li key={i}>
                         {linkify(entry.title, links)}
@@ -374,7 +388,7 @@ const CandidateDetailPage = ({ params }: { params: Promise<{ id: string; candida
                         )}
                       </li>
                     ))}
-                  </ol>
+                  </ul>
                 </div>
               );
             })}
