@@ -4,4 +4,5 @@ export const ROUND_LABELS: Record<InterviewRoundType, string> = {
   dsa: "DSA",
   vscode: "VS Code",
   technical_ai: "Technical (AI)",
+  system_design: "System design",
 };

@@ -12,7 +12,7 @@ import { portalApi } from "@/lib/portal-api";
  * Deliberately built on `visibilitychange` rather than `window.blur`: blur also fires
  * for in-page focus changes (clicking the browser's own address bar) that aren't
  * really "leaving", visibilitychange only fires for genuine tab/app switches. */
-export function useFocusLossProctoring(token: string, active: boolean): number {
+export function useFocusLossProctoring(token: string, active: boolean, round: "dsa" | "system-design" = "dsa"): number {
   const [count, setCount] = useState(0);
   const leftAtRef = useRef<string | null>(null);
 
@@ -30,7 +30,7 @@ export function useFocusLossProctoring(token: string, active: boolean): number {
       const returnedAt = new Date().toISOString();
 
       portalApi
-        .reportFocusLoss(token, leftAt, returnedAt)
+        .reportFocusLoss(token, leftAt, returnedAt, round)
         .then(({ count: total }) => setCount(total))
         .catch(() => {
           // Best-effort signal: a failed report shouldn't interrupt the candidate,
@@ -41,7 +41,7 @@ export function useFocusLossProctoring(token: string, active: boolean): number {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [token, active]);
+  }, [token, active, round]);
 
   return count;
 }

@@ -2,6 +2,7 @@ import "@/styles/globals.css";
 
 import type { Metadata } from "next";
 
+import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { fonts } from "@/lib/fonts";
 import { siteConfig } from "@/lib/site-config";
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 const RootLayout = ({ children }: { children: React.ReactNode }) => (
   <html lang="en" suppressHydrationWarning>
     <body className={cn("min-h-screen font-sans", fonts)} suppressHydrationWarning>
-      <ThemeProvider attribute="class">{children}</ThemeProvider>
+      <ThemeProvider attribute="class"><AuthProvider>{children}</AuthProvider></ThemeProvider>
     </body>
   </html>
 );
