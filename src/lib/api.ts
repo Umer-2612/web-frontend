@@ -4,6 +4,8 @@
  * that block third-party/strict cookies. Every request sends credentials:
  * "include" so the cookie goes automatically when it's available.
  */
+import type { Board, ProblemRequirements } from "@/lib/system-design/types";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 const AUTH_TOKEN_KEY = "interview_platform_auth_token";
@@ -112,7 +114,7 @@ export interface CandidateProfile {
   created_at: string;
 }
 
-export type InterviewRoundType = "dsa" | "vscode" | "technical_ai";
+export type InterviewRoundType = "dsa" | "vscode" | "technical_ai" | "system_design";
 export type InterviewRoundStatus = "pending" | "completed";
 export type InterviewSessionStatus = "scheduled" | "completed" | "cancelled";
 
@@ -142,8 +144,14 @@ export interface InterviewRound {
   started_at: string | null;
   /** Keyed by question id, only present once that question is submitted. */
   submissions: Record<string, QuestionSubmission> | null;
-  /** Only ever populated for a `dsa` round. */
+  /** Populated for `dsa` and `system_design` rounds. */
   focus_loss_events: FocusLossEvent[] | null;
+  /** Only for a `system_design` round: the assigned problem, the autosaved canvas and how many
+   * AI-hint runs the candidate used. A submitted round's `submissions` then holds a
+   * SystemDesignSubmission instead of the per-question map above. */
+  system_design_problem_id?: string | null;
+  board?: Board | null;
+  simulation_runs?: number;
   created_at: string;
 }
 
@@ -157,6 +165,25 @@ export interface InterviewSession {
   created_by: string;
   created_at: string;
   rounds: InterviewRound[];
+}
+
+export interface SystemDesignProblem {
+  id: string;
+  /** null = a global preset, read-only. */
+  company_id: string | null;
+  created_by: string | null;
+  title: string;
+  prompt: string;
+  difficulty: "easy" | "medium" | "hard";
+  requirements: ProblemRequirements;
+  created_at: string;
+}
+
+export interface SystemDesignProblemInput {
+  title: string;
+  prompt: string;
+  difficulty: SystemDesignProblem["difficulty"];
+  requirements: ProblemRequirements;
 }
 
 export class ApiError extends Error {
@@ -264,11 +291,21 @@ export const api = {
 
   listInterviews: (jobId: string, candidateId: string) =>
     request<InterviewSession[]>(`/jobs/${jobId}/candidates/${candidateId}/interviews`),
-  scheduleInterview: (jobId: string, candidateId: string, scheduledAt: string) =>
+  scheduleInterview: (jobId: string, candidateId: string, scheduledAt: string, systemDesignProblemId?: string) =>
     request<InterviewSession>(`/jobs/${jobId}/candidates/${candidateId}/interviews`, {
       method: "POST",
-      body: JSON.stringify({ scheduled_at: scheduledAt }),
+      body: JSON.stringify({
+        scheduled_at: scheduledAt,
+        ...(systemDesignProblemId ? { system_design_problem_id: systemDesignProblemId } : {}),
+      }),
     }),
+
+  listSystemDesignProblems: () => request<SystemDesignProblem[]>("/system-design-problems"),
+  createSystemDesignProblem: (input: SystemDesignProblemInput) =>
+    request<SystemDesignProblem>("/system-design-problems", { method: "POST", body: JSON.stringify(input) }),
+  updateSystemDesignProblem: (id: string, input: Partial<SystemDesignProblemInput>) =>
+    request<SystemDesignProblem>(`/system-design-problems/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteSystemDesignProblem: (id: string) => request<null>(`/system-design-problems/${id}`, { method: "DELETE" }),
 
   downloadResume: async (jobId: string, candidateId: string, fileName: string): Promise<void> => {
     const res = await fetch(`${API_URL}/jobs/${jobId}/candidates/${candidateId}/resume`, {

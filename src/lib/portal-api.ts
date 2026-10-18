@@ -5,10 +5,11 @@
  * and a candidate is never a logged-in user.
  */
 import { API_URL } from "@/lib/api";
+import type { AiHint, Board, ProblemRequirements, Scenario, SimulationResult } from "@/lib/system-design/types";
 
 export const JUDGE_URL = process.env.NEXT_PUBLIC_JUDGE_URL ?? "http://localhost:4001";
 
-export type InterviewRoundType = "dsa" | "vscode" | "technical_ai";
+export type InterviewRoundType = "dsa" | "vscode" | "technical_ai" | "system_design";
 export type InterviewRoundStatus = "pending" | "completed";
 export type InterviewSessionStatus = "scheduled" | "completed" | "cancelled";
 
@@ -91,6 +92,32 @@ export type RunTestsEvent =
 export type SubmitDsaQuestionEvent =
   | { type: "result"; index: number; result: GradedTestCase }
   | { type: "done"; submission: DsaSubmission }
+  | { type: "error"; message: string };
+
+export interface SystemDesignRoundView {
+  round_id: string;
+  status: InterviewRoundStatus;
+  started_at: string | null;
+  duration_minutes: number;
+  problem: { id: string; title: string; prompt: string; difficulty: "easy" | "medium" | "hard"; requirements: ProblemRequirements };
+  board: Board;
+  runs_used: number;
+  runs_max: number;
+  /** False when the server has no LLM configured: simulations still run, just without AI hints. */
+  ai_enabled: boolean;
+}
+
+/** One NDJSON line of POST /system-design/simulate. `engine` always arrives first. */
+export type SimulateEvent =
+  | { type: "engine"; result: SimulationResult }
+  | { type: "ai_hint"; hints: AiHint[]; runs_used: number; runs_max: number }
+  | { type: "ai_skipped"; reason: "not_configured" | "limit_reached" | "unavailable" }
+  | { type: "done"; runs_used: number; runs_max: number }
+  | { type: "error"; message: string };
+
+export type SubmitSystemDesignEvent =
+  | { type: "progress"; stage: "simulating" | "evaluating" | "saving" }
+  | { type: "done" }
   | { type: "error"; message: string };
 
 export class PortalApiError extends Error {
@@ -205,11 +232,21 @@ export const portalApi = {
   /** Warn-and-log proctoring only: reported once the candidate's tab regains focus or
    * fullscreen after losing it. Never blocks the candidate, just a signal a hiring
    * manager can review later. */
-  reportFocusLoss: (token: string, leftAt: string, returnedAt: string) =>
-    portalRequest<{ count: number }>(`/portal/${token}/dsa/focus-loss`, {
+  reportFocusLoss: (token: string, leftAt: string, returnedAt: string, round: "dsa" | "system-design" = "dsa") =>
+    portalRequest<{ count: number }>(`/portal/${token}/${round}/focus-loss`, {
       method: "POST",
       body: JSON.stringify({ left_at: leftAt, returned_at: returnedAt }),
     }),
+  getSystemDesignRound: (token: string) => portalRequest<SystemDesignRoundView>(`/portal/${token}/system-design`),
+  startSystemDesignRound: (token: string) =>
+    portalRequest<{ started_at: string }>(`/portal/${token}/system-design/start`, { method: "POST" }),
+  saveBoard: (token: string, board: Board) =>
+    portalRequest<{ saved_at: string }>(`/portal/${token}/system-design/board`, { method: "PUT", body: JSON.stringify({ board }) }),
+  /** Streams the deterministic engine result first, then the optional AI hint. */
+  simulate: (token: string, board: Board, scenario: Scenario, onEvent: (event: SimulateEvent) => void, signal?: AbortSignal) =>
+    streamPortalRequest<SimulateEvent>(`/portal/${token}/system-design/simulate`, { board, scenario }, onEvent, signal),
+  submitSystemDesign: (token: string, board: Board, onEvent: (event: SubmitSystemDesignEvent) => void) =>
+    streamPortalRequest<SubmitSystemDesignEvent>(`/portal/${token}/system-design/submit`, { board }, onEvent),
   /** Ad hoc "Run" with arbitrary stdin, calls judge-service directly, never saved
    * and never graded against a question's test cases (that's runDsaTests). */
   execute: async (languageId: number, code: string, stdin: string): Promise<ExecuteResult> => {

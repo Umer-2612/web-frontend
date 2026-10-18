@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronRight, Circle, Code2, Lock, MessageSquareCode, MonitorSmartphone } from "lucide-react";
+import { CheckCircle2, ChevronRight, Circle, Code2, Lock, MessageSquareCode, MonitorSmartphone, Network } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 
@@ -10,6 +10,7 @@ import { PortalApiError, portalApi, type InterviewRoundType, type PortalOverview
 const ROUND_META: Record<InterviewRoundType, { label: string; icon: typeof Code2; href: (token: string) => string }> = {
   dsa: { label: "DSA Round", icon: Code2, href: (token) => `/interview/${token}/dsa` },
   vscode: { label: "VSCode Bug Fix", icon: MonitorSmartphone, href: () => "#" },
+  system_design: { label: "System Design Round", icon: Network, href: (token) => `/interview/${token}/system-design` },
   technical_ai: { label: "AI Technical Round", icon: MessageSquareCode, href: () => "#" },
 };
 
@@ -50,9 +51,10 @@ export default function InterviewPortalPage({ params }: { params: Promise<{ toke
         {portal.rounds.map((round) => {
           const meta = ROUND_META[round.round_type];
           const Icon = meta.icon;
-          const isDsa = round.round_type === "dsa";
+          // Only rounds that have a page yet are openable; the rest stay "Coming soon".
+          const hasPage = round.round_type === "dsa" || round.round_type === "system_design";
           const isDone = round.status === "completed";
-          const isClickable = isDsa && !isDone;
+          const isClickable = hasPage && !isDone;
 
           const cardStyle = isDone
             ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/10"
